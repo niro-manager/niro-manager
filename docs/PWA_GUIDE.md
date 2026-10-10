@@ -11,12 +11,12 @@
 
 ## 2. Niro Manager에 적용할 때 확인할 점
 
-아래는 규칙을 이 프로젝트에 적용할 때의 검토 메모이며, 호스팅·조직 이름 등은 사용자와 합의 전까지 확정하지 않습니다.
+아래는 규칙을 이 프로젝트에 적용한 내용입니다.
 
-- **호스팅 후보:** 규칙상 GitHub Pages가 기본 후보입니다. 단, 현재 저장소는 Private입니다. GitHub Pages를 Private 저장소에서 쓰려면 유료 플랜이 필요하고, 무료 플랜에서는 Public 저장소여야 합니다. 저장소 공개 여부 또는 배포 전용 저장소 분리를 사용자와 합의합니다. Public으로 전환해도 비밀값·개인정보·실제 차계부 데이터는 저장소에 넣지 않습니다.
-- **전용 조직:** 전용 조직 `niro-manager`를 사용하고 이 저장소를 이전한 뒤 Public으로 전환합니다(2026-10-10 결정). 배포 주소는 `https://niro-manager.github.io/<저장소>/`입니다.
-- **manifest `id`·`start_url`·`scope`:** 배포 경로(`/<저장소>/`)를 기준으로 절대 경로를 사용합니다. 저장소 이름이 바뀌면 설치 앱 식별자가 바뀌므로 배포 전에 경로를 확정합니다.
-- **서비스 워커 캐시:** 앱 셸(정적 파일)만 캐시합니다. Google 인증 응답, API 응답, 차계부 기록은 캐시하지 않습니다(`AGENTS.md` 원칙). 정적 파일이나 manifest를 바꾸면 캐시 이름(버전)을 올립니다.
-- **백업·불러오기:** 원본 데이터는 Google 스프레드시트에 있으므로 주소가 바뀌어도 기록 자체는 보존됩니다. 다만 앱이 브라우저에 저장하는 설정(대상 시트 ID, 복사본/원본 모드, 화면 설정 등)은 주소를 옮기면 사라지므로 첫 버전부터 설정 내보내기·불러오기를 제공합니다. 기록 내보내기(CSV/JSON 등) 범위는 별도로 합의합니다. 내보낸 파일은 Git에 커밋하지 않습니다.
-- **Google OAuth:** OAuth 클라이언트의 승인된 JavaScript 원본은 배포 주소(`https://<조직>.github.io`)와 일치해야 합니다. 주소를 옮기면 OAuth 설정도 갱신해야 합니다.
+- **호스팅:** GitHub Pages. 무료 플랜의 Pages는 Public 저장소가 필요하므로 저장소를 Public으로 전환합니다. 비밀값·개인정보·실제 차계부 데이터는 저장소에 넣지 않습니다.
+- **전용 조직:** 전용 조직 `niro-manager`를 사용하고 이 저장소를 `niro-manager`라는 이름으로 이전한 뒤 Public으로 전환합니다(2026-10-10 결정). 배포 주소는 `https://niro-manager.github.io/niro-manager/`입니다.
+- **manifest `id`·`start_url`·`scope`:** `id`는 `/niro-manager/niro-manager`, `start_url`·`scope`는 `/niro-manager/`입니다(`public/manifest.webmanifest`, `vite.config.ts`의 `base`). 저장소 이름이 바뀌면 설치 앱 식별자가 바뀌므로 바꾸지 않습니다.
+- **서비스 워커 캐시:** 앱 셸(정적 파일)만 캐시합니다. Google 인증 응답, API 응답, 차계부 기록은 캐시하지 않습니다(`AGENTS.md` 원칙). 페이지와 manifest는 네트워크 우선, 빌드 해시가 붙은 `assets/`는 캐시 우선입니다. manifest나 앱 셸 목록을 바꾸면 `public/sw.js`의 `CACHE_VERSION`을 올립니다.
+- **백업·불러오기:** 원본 데이터는 Google 스프레드시트에 있으므로 주소가 바뀌어도 기록 자체는 보존됩니다. 다만 앱이 브라우저에 저장하는 설정(대상 시트 ID, 복사본/원본 모드, 탭 이름)은 주소를 옮기면 사라지므로 첫 버전부터 설정 화면에서 JSON 내보내기·불러오기를 제공합니다(`src/settings/`). 기록 내보내기(CSV/JSON 등) 범위는 별도로 합의합니다. 내보낸 파일은 Git에 커밋하지 않습니다.
+- **Google OAuth:** OAuth 클라이언트의 승인된 JavaScript 원본은 배포 주소(`https://niro-manager.github.io`)와 일치해야 합니다. 주소를 옮기면 OAuth 설정도 갱신해야 합니다.
 - **검증 기기:** 안드로이드 크롬 설치를 1차 기준으로 검증하고, iOS Safari·Windows/macOS 브라우저 설치도 확인합니다.

@@ -13,3 +13,4 @@ token*.json
 service-account*.json
 private-data/
 sheet-exports/
+*.local
