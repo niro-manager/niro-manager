@@ -5,8 +5,10 @@
 export type SheetTarget = 'copy' | 'original'
 
 export interface Settings {
-  /** 연결할 스프레드시트 ID. 비어 있으면 미설정 */
+  /** 연결할 스프레드시트 ID. 비어 있으면 미설정. Google Picker로 고른 파일만 읽을 수 있다 */
   spreadsheetId: string
+  /** 화면 표시용 파일 이름 */
+  spreadsheetName: string
   /** 연결한 시트가 테스트용 복사본인지 원본인지. 1단계는 읽기 전용이라 표시용이다 */
   target: SheetTarget
   fuelSheetName: string
@@ -15,6 +17,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   spreadsheetId: '',
+  spreadsheetName: '',
   target: 'copy',
   fuelSheetName: '시트1',
   maintenanceSheetName: '시트2',
@@ -34,18 +37,12 @@ export interface SettingsBackup {
 
 export type SettingsResult = { ok: true; settings: Settings } | { ok: false; error: string }
 
-/** 스프레드시트 URL 또는 ID에서 ID만 꺼낸다. 형식이 맞지 않으면 null. */
-export function extractSpreadsheetId(input: string): string | null {
-  const trimmed = input.trim()
-  const fromUrl = /\/spreadsheets\/d\/([A-Za-z0-9_-]+)/.exec(trimmed)?.[1]
-  const id = fromUrl ?? trimmed
-  return SPREADSHEET_ID.test(id) ? id : null
-}
-
 export function validateSettings(value: unknown): SettingsResult {
   if (typeof value !== 'object' || value === null) return { ok: false, error: '설정 형식이 올바르지 않습니다.' }
   const v = value as Record<string, unknown>
   const { spreadsheetId, target, fuelSheetName, maintenanceSheetName } = v
+  const spreadsheetName = v.spreadsheetName ?? ''
+  if (typeof spreadsheetName !== 'string') return { ok: false, error: '파일 이름 형식이 올바르지 않습니다.' }
   if (typeof spreadsheetId !== 'string') return { ok: false, error: '스프레드시트 ID가 없습니다.' }
   if (spreadsheetId !== '' && !SPREADSHEET_ID.test(spreadsheetId)) return { ok: false, error: '스프레드시트 ID 형식이 올바르지 않습니다.' }
   if (target !== 'copy' && target !== 'original') return { ok: false, error: '연결 대상(복사본/원본) 값이 올바르지 않습니다.' }
@@ -53,7 +50,7 @@ export function validateSettings(value: unknown): SettingsResult {
   if (typeof maintenanceSheetName !== 'string' || maintenanceSheetName.trim() === '') return { ok: false, error: '정비 탭 이름이 비어 있습니다.' }
   return {
     ok: true,
-    settings: { spreadsheetId, target, fuelSheetName: fuelSheetName.trim(), maintenanceSheetName: maintenanceSheetName.trim() },
+    settings: { spreadsheetId, spreadsheetName, target, fuelSheetName: fuelSheetName.trim(), maintenanceSheetName: maintenanceSheetName.trim() },
   }
 }
 

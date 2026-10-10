@@ -1,9 +1,8 @@
 import { parseDate, parseNumber, parseText, type CellValue } from './cells'
 import type { MaintenanceRecord, ParseResult, RowWarning } from './types'
 
-/** 시트2 읽기 범위. 헤더 없이 1행부터 A~E열을 읽는다. */
+/** 시트2는 헤더 없이 1행부터 A~E열을 읽는다. */
 export const MAINTENANCE_FIRST_ROW = 1
-export const MAINTENANCE_COLUMNS = 'A:E'
 
 // 열 위치(0부터): A 날짜, B 항목, C 업체, D 누적 km, E 총액
 const COL = { date: 0, item: 1, vendor: 2, odometer: 3, cost: 4 } as const

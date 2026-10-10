@@ -1,9 +1,8 @@
 import { parseDate, parseNumber, parseText, type CellValue } from './cells'
 import type { FuelRecord, ParseResult, RowWarning } from './types'
 
-/** 시트1 읽기 범위. 1행은 헤더이므로 2행부터 A~I열을 읽는다. */
+/** 시트1은 1행이 헤더이므로 2행부터 A~I열을 읽는다. */
 export const FUEL_FIRST_ROW = 2
-export const FUEL_COLUMNS = 'A:I'
 
 // 열 위치(0부터): A 날짜, B 요일(수식), C 단가, D 리터, E 주유비, F 경과일수(수식), G 누적 km, H 비고, I 비고
 const COL = { date: 0, unitPrice: 2, liters: 3, cost: 4, odometer: 6, memoH: 7, memoI: 8 } as const

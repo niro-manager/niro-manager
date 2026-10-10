@@ -29,6 +29,11 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+        env:
+          # 공개되는 값이지만 커밋하지 않고 저장소 Actions Variables로 주입한다(docs/GOOGLE_SETUP.md).
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          VITE_GOOGLE_API_KEY: ${{ vars.VITE_GOOGLE_API_KEY }}
+          VITE_GOOGLE_APP_ID: ${{ vars.VITE_GOOGLE_APP_ID }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

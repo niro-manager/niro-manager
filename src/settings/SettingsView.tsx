@@ -1,22 +1,24 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react'
-import { createBackup, extractSpreadsheetId, parseBackup, validateSettings, type Settings, type SheetTarget } from './settings.ts'
+import type { GoogleSession } from '../session/useGoogleSession.ts'
+import { pickSpreadsheet } from '../sheets/picker.ts'
+import { createBackup, parseBackup, validateSettings, type Settings, type SheetTarget } from './settings.ts'
 
 interface Props {
   settings: Settings
+  session: GoogleSession
   onChange: (settings: Settings) => void
 }
 
 type Message = { kind: 'success' | 'error'; text: string } | null
 
-export function SettingsView({ settings, onChange }: Props) {
-  const [sheetInput, setSheetInput] = useState(settings.spreadsheetId)
+export function SettingsView({ settings, session, onChange }: Props) {
+  const [picking, setPicking] = useState(false)
   const [target, setTarget] = useState<SheetTarget>(settings.target)
   const [fuelSheetName, setFuelSheetName] = useState(settings.fuelSheetName)
   const [maintenanceSheetName, setMaintenanceSheetName] = useState(settings.maintenanceSheetName)
   const [message, setMessage] = useState<Message>(null)
 
   const applyToForm = (next: Settings) => {
-    setSheetInput(next.spreadsheetId)
     setTarget(next.target)
     setFuelSheetName(next.fuelSheetName)
     setMaintenanceSheetName(next.maintenanceSheetName)
@@ -24,12 +26,7 @@ export function SettingsView({ settings, onChange }: Props) {
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault()
-    const spreadsheetId = sheetInput.trim() === '' ? '' : extractSpreadsheetId(sheetInput)
-    if (spreadsheetId === null) {
-      setMessage({ kind: 'error', text: '스프레드시트 URL 또는 ID 형식이 올바르지 않습니다.' })
-      return
-    }
-    const result = validateSettings({ spreadsheetId, target, fuelSheetName, maintenanceSheetName })
+    const result = validateSettings({ ...settings, target, fuelSheetName, maintenanceSheetName })
     if (!result.ok) {
       setMessage({ kind: 'error', text: result.error })
       return
@@ -37,6 +34,27 @@ export function SettingsView({ settings, onChange }: Props) {
     onChange(result.settings)
     applyToForm(result.settings)
     setMessage({ kind: 'success', text: '이 기기에 설정을 저장했습니다.' })
+  }
+
+  const handlePick = async () => {
+    if (!session.config) {
+      setMessage({ kind: 'error', text: 'Google 설정이 없어 파일을 선택할 수 없습니다.' })
+      return
+    }
+    setMessage(null)
+    const accessToken = session.token ?? (await session.signIn())
+    if (!accessToken) return
+    setPicking(true)
+    try {
+      const file = await pickSpreadsheet(session.config, accessToken)
+      if (!file) return
+      onChange({ ...settings, spreadsheetId: file.id, spreadsheetName: file.name })
+      setMessage({ kind: 'success', text: `"${file.name}" 파일을 연결했습니다.` })
+    } catch (e) {
+      setMessage({ kind: 'error', text: e instanceof Error ? e.message : '파일 선택에 실패했습니다.' })
+    } finally {
+      setPicking(false)
+    }
   }
 
   const handleExport = () => {
@@ -67,11 +85,17 @@ export function SettingsView({ settings, onChange }: Props) {
     <>
       <section className="card">
         <h2>시트 연결</h2>
+        <div className="row spread">
+          <div>
+            <div>{settings.spreadsheetName || (settings.spreadsheetId ? '이름 없는 파일' : '선택한 파일 없음')}</div>
+            {settings.spreadsheetId && <div className="hint mono">{settings.spreadsheetId}</div>}
+          </div>
+          <button type="button" onClick={handlePick} disabled={picking || session.signingIn}>
+            {settings.spreadsheetId ? '다른 파일 선택' : 'Google Drive에서 선택'}
+          </button>
+        </div>
+        <p className="hint">앱은 여기서 고른 파일에만 접근합니다(drive.file 권한).</p>
         <form onSubmit={handleSubmit} className="form">
-          <label>
-            스프레드시트 URL 또는 ID
-            <input value={sheetInput} onChange={(e) => setSheetInput(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/..." autoComplete="off" />
-          </label>
           <fieldset>
             <legend>연결 대상</legend>
             <label className="inline">
@@ -89,14 +113,14 @@ export function SettingsView({ settings, onChange }: Props) {
             정비 탭 이름
             <input value={maintenanceSheetName} onChange={(e) => setMaintenanceSheetName(e.target.value)} />
           </label>
-          <button type="submit">저장</button>
+          <button type="submit">대상·탭 이름 저장</button>
         </form>
         <p className="hint">1단계는 읽기 전용입니다. 앱은 시트에 쓰지 않습니다.</p>
       </section>
 
       <section className="card">
         <h2>설정 백업</h2>
-        <p className="hint">설정은 이 기기의 브라우저에만 저장됩니다. 앱 주소가 바뀌거나 다른 기기에서 쓸 때는 백업 파일로 옮기세요.</p>
+        <p className="hint">설정은 이 기기의 브라우저에만 저장됩니다. 앱 주소가 바뀌거나 다른 기기에서 쓸 때는 백업 파일로 옮기세요. 백업 파일에는 스프레드시트 ID가 들어 있으니 공유하지 마세요.</p>
         <div className="row">
           <button type="button" onClick={handleExport}>내보내기</button>
           <label className="button">

@@ -3,7 +3,6 @@ import {
   DEFAULT_SETTINGS,
   SETTINGS_STORAGE_KEY,
   createBackup,
-  extractSpreadsheetId,
   loadSettings,
   parseBackup,
   saveSettings,
@@ -11,7 +10,7 @@ import {
 } from './settings'
 
 const FAKE_ID = 'abcdefghijklmnopqrstuvwxyz_0123456789-AB'
-const SETTINGS: Settings = { ...DEFAULT_SETTINGS, spreadsheetId: FAKE_ID }
+const SETTINGS: Settings = { ...DEFAULT_SETTINGS, spreadsheetId: FAKE_ID, spreadsheetName: '테스트 차계부' }
 
 function memoryStorage() {
   const map = new Map<string, string>()
@@ -21,21 +20,15 @@ function memoryStorage() {
   }
 }
 
-describe('extractSpreadsheetId', () => {
-  it('URL과 ID를 모두 받는다', () => {
-    expect(extractSpreadsheetId(`https://docs.google.com/spreadsheets/d/${FAKE_ID}/edit#gid=0`)).toBe(FAKE_ID)
-    expect(extractSpreadsheetId(` ${FAKE_ID} `)).toBe(FAKE_ID)
-  })
-  it('형식이 맞지 않으면 null', () => {
-    expect(extractSpreadsheetId('짧음')).toBeNull()
-    expect(extractSpreadsheetId('https://example.com')).toBeNull()
-  })
-})
-
 describe('백업과 불러오기', () => {
   it('내보낸 백업을 그대로 불러온다', () => {
     const json = JSON.stringify(createBackup(SETTINGS, new Date('2026-10-10T00:00:00Z')))
     expect(parseBackup(json)).toEqual({ ok: true, settings: SETTINGS })
+  })
+  it('파일 이름이 없는 이전 백업도 불러온다', () => {
+    const { spreadsheetName: _omit, ...legacy } = SETTINGS
+    const json = JSON.stringify({ format: 'niro-manager-settings', version: 1, exportedAt: '', settings: legacy })
+    expect(parseBackup(json)).toEqual({ ok: true, settings: { ...SETTINGS, spreadsheetName: '' } })
   })
   it('다른 형식이나 깨진 파일은 거부한다', () => {
     expect(parseBackup('not json').ok).toBe(false)
