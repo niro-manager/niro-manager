@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChartsView } from './charts/ChartsView.tsx'
+import { clearAllDrafts } from './entry/drafts.ts'
 import { EntryView } from './entry/EntryView.tsx'
 import { RecordsView } from './records/RecordsView.tsx'
 import { isStale, useLogbook } from './records/useLogbook.ts'
 import { useGoogleSession, type GoogleSession } from './session/useGoogleSession.ts'
+import { useOnline } from './session/useOnline.ts'
 import { SettingsView } from './settings/SettingsView.tsx'
 import { loadSettings, saveSettings, type Settings } from './settings/settings.ts'
 
@@ -50,6 +52,17 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [settings.spreadsheetId, logbook, currentToken, expire, load])
 
+  // 연결이 돌아오면 토큰이 유효한 동안 바로 다시 읽는다(오프라인 A+).
+  const online = useOnline()
+  useEffect(() => {
+    const onOnline = () => {
+      const token = currentToken()
+      if (token && settings.spreadsheetId) void load(token, expire)
+    }
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [settings.spreadsheetId, currentToken, expire, load])
+
   const refresh = async () => {
     const token = currentToken()
     if (token) await load(token, expire)
@@ -73,6 +86,7 @@ export default function App() {
   const signOut = async () => {
     await baseSession.signOut()
     clear()
+    clearAllDrafts()
   }
 
   return (
@@ -92,6 +106,11 @@ export default function App() {
           )}
         </div>
       </header>
+      {!online && (
+        <p role="status" className="message offline">
+          오프라인입니다. {logbook ? '마지막으로 읽은 기록을 보여 줍니다. ' : ''}저장은 연결된 뒤에 할 수 있고, 연결되면 다시 읽습니다.
+        </p>
+      )}
       {!session.config && <p className="message error">Google 설정이 빌드에 없어 로그인할 수 없습니다. README의 Google 설정 절차를 확인해 주세요.</p>}
       {session.error && (
         <p role="alert" className="message error">

@@ -1,10 +1,12 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { expectedCost, validateFuelForm, type FuelForm } from '../domain/fuelInput'
 import { today, formatDate, formatKm, formatLiters, formatWon } from '../format'
 import type { GoogleSession } from '../session/useGoogleSession'
 import type { Settings } from '../settings/settings'
 import { commitFuelWrite, planFuelWrite, type FuelWritePlan, type FuelWriteResult } from '../sheets/fuelWriter'
-import { Field } from './Field'
+import { clearDraft, loadDraft, saveDraft } from './drafts'
+import { OFFLINE_MESSAGE, isOffline } from './offline'
+import { DraftNotice, Field } from './Field'
 import { SheetsError } from '../sheets/sheetsClient'
 
 interface Props {
@@ -19,7 +21,10 @@ type Stage = { kind: 'form' } | { kind: 'confirm'; plan: FuelWritePlan } | { kin
 const emptyForm = (): FuelForm => ({ date: today(), unitPrice: '', liters: '', manualCostEnabled: false, manualCost: '', odometerKm: '', memo: '' })
 
 export function FuelEntryView({ settings, session, onSaved }: Props) {
-  const [form, setForm] = useState<FuelForm>(emptyForm)
+  // 앱이 닫혀도 쓰던 내용이 남도록 저장하지 않은 입력만 임시 보관한다(오프라인 A+).
+  const [restored, setRestored] = useState(() => loadDraft('fuel') !== null)
+  const [form, setForm] = useState<FuelForm>(() => loadDraft('fuel') ?? emptyForm())
+  useEffect(() => saveDraft('fuel', form), [form])
   const [errors, setErrors] = useState<Partial<Record<keyof FuelForm, string>>>({})
   const [stage, setStage] = useState<Stage>({ kind: 'form' })
   const [busy, setBusy] = useState(false)
@@ -43,6 +48,7 @@ export function FuelEntryView({ settings, session, onSaved }: Props) {
       return
     }
     setErrors({})
+    if (isOffline()) return setError(OFFLINE_MESSAGE)
     const token = await withToken()
     if (!token) return
     setBusy(true)
@@ -58,11 +64,14 @@ export function FuelEntryView({ settings, session, onSaved }: Props) {
   const handleSave = async (plan: FuelWritePlan) => {
     if (busy) return
     setError(null)
+    if (isOffline()) return setError(OFFLINE_MESSAGE)
     const token = await withToken()
     if (!token) return
     setBusy(true)
     try {
       const result = await commitFuelWrite(token, settings, plan)
+      clearDraft('fuel')
+      setRestored(false)
       setStage({ kind: 'done', result, plan })
       onSaved()
     } catch (e) {
@@ -125,6 +134,14 @@ export function FuelEntryView({ settings, session, onSaved }: Props) {
       {stage.kind === 'form' && (
         <section className="card">
           <h2>주유 입력</h2>
+          {restored && (
+            <DraftNotice
+              onDiscard={() => {
+                setForm(emptyForm())
+                setRestored(false)
+              }}
+            />
+          )}
           <form className="form" onSubmit={handleReview} noValidate>
             <Field label="날짜" error={errors.date}>
               <input type="date" value={form.date} onChange={(e) => set('date', e.target.value)} required />

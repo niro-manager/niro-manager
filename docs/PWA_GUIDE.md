@@ -18,5 +18,6 @@
 - **manifest `id`·`start_url`·`scope`:** `id`는 `/niro-manager/niro-manager`, `start_url`·`scope`는 `/niro-manager/`입니다(`public/manifest.webmanifest`, `vite.config.ts`의 `base`). 저장소 이름이 바뀌면 설치 앱 식별자가 바뀌므로 바꾸지 않습니다.
 - **서비스 워커 캐시:** 앱 셸(정적 파일)만 캐시합니다. Google 인증 응답, API 응답, 차계부 기록은 캐시하지 않습니다(`AGENTS.md` 원칙). 페이지와 manifest는 네트워크 우선, 빌드 해시가 붙은 `assets/`는 캐시 우선입니다. manifest나 앱 셸 목록을 바꾸면 `public/sw.js`의 `CACHE_VERSION`을 올립니다.
 - **백업·불러오기:** 원본 데이터는 Google 스프레드시트에 있으므로 주소가 바뀌어도 기록 자체는 보존됩니다. 다만 앱이 브라우저에 저장하는 설정(대상 시트 ID, 복사본/원본 모드, 탭 이름)은 주소를 옮기면 사라지므로 첫 버전부터 설정 화면에서 JSON 내보내기·불러오기를 제공합니다(`src/settings/`). 기록 내보내기는 앱에 두지 않고 Google Sheets의 "파일 → 다운로드"를 씁니다(2026-10-10 결정). 내보낸 파일은 Git에 커밋하지 않습니다.
+- **오프라인:** 기록은 기기에 저장하지 않습니다. 오프라인이면 안내를 띄우고, 저장하지 않은 입력 중인 내용(주유·정비 각 한 건)만 localStorage에 임시 보관합니다(`src/entry/drafts.ts`). 저장 성공·로그아웃·지우기 때 삭제합니다(2026-10-10 결정).
 - **Google OAuth:** OAuth 클라이언트의 승인된 JavaScript 원본은 배포 주소(`https://niro-manager.github.io`)와 일치해야 합니다. 주소를 옮기면 OAuth 설정도 갱신해야 합니다.
 - **검증 기기:** 안드로이드 크롬 설치를 1차 기준으로 검증하고, iOS Safari·Windows/macOS 브라우저 설치도 확인합니다.

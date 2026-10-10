@@ -49,6 +49,7 @@ npm run preview    # 빌드 결과 확인 (서비스 워커는 빌드에서만 �
 - `src/records/`: 기록 목록 화면, 시트 읽기 상태(`useLogbook.ts`: 로그인 직후 자동 읽기, 앱 복귀 시 5분 경과면 재읽기)
 - `src/entry/`, `src/domain/fuelInput.ts`, `src/domain/maintenanceInput.ts`, `src/sheets/fuelWriter.ts`, `src/sheets/maintenanceWriter.ts`: 주유·정비 입력, 쓰기 위치 계산(추가/날짜순 끼워 넣기), batchUpdate 쓰기와 저장 후 검증
 - `src/sheets/writeGuard.ts`: 쓰기 대상 제한(원본 쓰기 잠금)
+- `src/entry/drafts.ts`, `src/session/useOnline.ts`: 저장하지 않은 입력 임시 보관, 오프라인 안내와 연결 복구 시 재읽기(기록 자체는 기기에 저장하지 않음)
 - `src/domain/monthly.ts`, `src/charts/`: 월별 집계(주유 단가는 리터 가중 평균)와 SVG 차트
 - `src/settings/`: 연결할 시트 설정, localStorage 저장, JSON 백업·불러오기
 - `public/manifest.webmanifest`, `public/sw.js`: PWA 설정과 앱 셸 캐시

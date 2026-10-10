@@ -1,11 +1,13 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { validateMaintenanceForm, type MaintenanceForm } from '../domain/maintenanceInput'
 import { today, formatDate, formatKm, formatWon } from '../format'
 import type { GoogleSession } from '../session/useGoogleSession'
 import type { Settings } from '../settings/settings'
 import { commitMaintenanceWrite, planMaintenanceWrite, type MaintenanceWritePlan, type MaintenanceWriteResult } from '../sheets/maintenanceWriter'
 import { SheetsError } from '../sheets/sheetsClient'
-import { Field } from './Field'
+import { clearDraft, loadDraft, saveDraft } from './drafts'
+import { OFFLINE_MESSAGE, isOffline } from './offline'
+import { DraftNotice, Field } from './Field'
 
 interface Props {
   settings: Settings
@@ -18,7 +20,10 @@ type Stage = { kind: 'form' } | { kind: 'confirm'; plan: MaintenanceWritePlan } 
 const emptyForm = (): MaintenanceForm => ({ date: today(), items: [''], vendor: '', odometerKm: '', cost: '' })
 
 export function MaintenanceEntryView({ settings, session, onSaved }: Props) {
-  const [form, setForm] = useState<MaintenanceForm>(emptyForm)
+  // 앱이 닫혀도 쓰던 내용이 남도록 저장하지 않은 입력만 임시 보관한다(오프라인 A+).
+  const [restored, setRestored] = useState(() => loadDraft('maintenance') !== null)
+  const [form, setForm] = useState<MaintenanceForm>(() => loadDraft('maintenance') ?? emptyForm())
+  useEffect(() => saveDraft('maintenance', form), [form])
   const [errors, setErrors] = useState<Partial<Record<keyof MaintenanceForm, string>>>({})
   const [stage, setStage] = useState<Stage>({ kind: 'form' })
   const [busy, setBusy] = useState(false)
@@ -41,6 +46,7 @@ export function MaintenanceEntryView({ settings, session, onSaved }: Props) {
       return
     }
     setErrors({})
+    if (isOffline()) return setError(OFFLINE_MESSAGE)
     const token = await withToken()
     if (!token) return
     setBusy(true)
@@ -56,11 +62,14 @@ export function MaintenanceEntryView({ settings, session, onSaved }: Props) {
   const handleSave = async (plan: MaintenanceWritePlan) => {
     if (busy) return
     setError(null)
+    if (isOffline()) return setError(OFFLINE_MESSAGE)
     const token = await withToken()
     if (!token) return
     setBusy(true)
     try {
       const result = await commitMaintenanceWrite(token, settings, plan)
+      clearDraft('maintenance')
+      setRestored(false)
       setStage({ kind: 'done', result, plan })
       onSaved()
     } catch (e) {
@@ -120,6 +129,14 @@ export function MaintenanceEntryView({ settings, session, onSaved }: Props) {
       {stage.kind === 'form' && (
         <section className="card">
           <h2>정비 입력</h2>
+          {restored && (
+            <DraftNotice
+              onDiscard={() => {
+                setForm(emptyForm())
+                setRestored(false)
+              }}
+            />
+          )}
           <form className="form" onSubmit={handleReview} noValidate>
             <Field label="날짜" error={errors.date}>
               <input type="date" value={form.date} onChange={(e) => set('date', e.target.value)} required />

@@ -120,3 +120,5 @@ input[type='date'], input[inputmode] { font: inherit; padding: 8px 10px; border:
 .items { display: grid; gap: 8px; }
 .items .row { flex-wrap: nowrap; }
 .items input { flex: 1; font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
+.message.offline { color: var(--text); border-color: var(--muted); background: var(--card); }
+.message.notice.row { align-items: center; gap: 8px; }
