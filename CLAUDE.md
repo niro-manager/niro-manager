@@ -26,11 +26,11 @@ Interactive Coding으로 중요한 설계 결정을 사용자와 합의합니다
 - [x] Codex 시작 안내와 PR 양식 준비
 - [x] 로컬 문서 구조 및 요구사항 검증
 - [x] 연결된 계정에 `Niro-Manager` Private 저장소 생성
-- [ ] 준비 문서를 별도 브랜치로 업로드하고 PR 생성
+- [x] 준비 문서를 별도 브랜치로 업로드하고 PR #1 생성
 - [ ] 사용자가 준비 PR을 검토하고 main 병합 승인
 - [ ] Codex에서 저장소 접근 및 작업 환경 연결 확인
 
-GitHub 계정은 연결 도구로 `Hoyasiro`임을 확인했습니다. Private 저장소 생성과 초기 README 커밋을 확인했습니다. 준비 문서는 `chore/project-setup` 브랜치의 PR로 전달합니다. 실제 앱 기능, 의존성, OAuth, Sheets 연결, 배포는 구현하지 않았습니다. 원본 시트는 조회하거나 수정하지 않았습니다.
+GitHub 계정은 연결 도구로 `Hoyasiro`임을 확인했습니다. Private 저장소 생성과 초기 README 커밋을 확인했습니다. 준비 문서는 `chore/project-setup` 브랜치의 PR #1로 전달했습니다. PR은 열린 상태이며 main에 병합하지 않았습니다. 실제 앱 기능, 의존성, OAuth, Sheets 연결, 배포는 구현하지 않았습니다. 원본 시트는 조회하거나 수정하지 않았습니다.
 
 ## 다음 단계 TODO
 
