@@ -76,3 +76,35 @@ button:disabled { opacity: 0.5; cursor: default; }
 .record-memo { margin: 6px 0 0; font-size: 0.9rem; }
 .warnings summary { cursor: pointer; }
 .warnings ul { margin: 8px 0 0; padding-left: 20px; font-size: 0.85rem; color: var(--muted); }
+
+/* 차트: 단일 계열이라 범례 없이 제목이 계열을 밝힌다. 색은 dataviz 기준 팔레트 1번(파랑) */
+:root { --series-1: #2a78d6; --grid: #e3e7ec; }
+@media (prefers-color-scheme: dark) { :root { --series-1: #3987e5; --grid: #2a333f; } }
+
+.filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.chip { background: var(--card); color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; font-size: 0.85rem; }
+.chip.active { color: var(--primary); border-color: var(--primary); font-weight: 600; }
+
+.chart { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 12px 4px; margin: 0 0 12px; }
+.chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.chart-title { font-weight: 600; }
+.chart-latest { color: var(--muted); font-size: 0.85rem; }
+.chart-latest strong { color: var(--text); }
+.chart-body { position: relative; }
+.chart svg { display: block; touch-action: pan-y; outline: none; }
+.chart svg:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+.chart .grid { stroke: var(--grid); stroke-width: 1; }
+.chart .tick { fill: var(--muted); font-size: 11px; }
+.chart .bar { fill: var(--series-1); }
+.chart .bar.active { fill: var(--series-1); opacity: 0.75; }
+.chart .line { fill: none; stroke: var(--series-1); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .dot { fill: var(--series-1); stroke: var(--card); stroke-width: 2; }
+.chart .crosshair { stroke: var(--muted); stroke-width: 1; }
+.tooltip { position: absolute; top: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; display: grid; gap: 2px; font-size: 0.8rem; color: var(--muted); pointer-events: none; white-space: nowrap; box-shadow: 0 2px 8px rgb(0 0 0 / 0.12); }
+.tooltip strong { color: var(--text); font-size: 0.95rem; }
+
+.table-wrap { overflow-x: auto; margin-top: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+th[scope='row'], thead th:first-child { text-align: left; }
+.muted { color: var(--muted); }

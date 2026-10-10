@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ChartsView } from './charts/ChartsView.tsx'
 import { RecordsView } from './records/RecordsView.tsx'
 import { useGoogleSession } from './session/useGoogleSession.ts'
 import { SettingsView } from './settings/SettingsView.tsx'
@@ -65,12 +66,7 @@ export default function App() {
       </nav>
       <main>
         {tab === 'records' && <RecordsView settings={settings} session={session} logbook={logbook} onLoaded={setLogbook} />}
-        {tab === 'charts' && (
-          <section className="card">
-            <h2>월별 차트</h2>
-            <p>집계 기준을 합의한 뒤 만듭니다.</p>
-          </section>
-        )}
+        {tab === 'charts' && <ChartsView logbook={logbook} onGoToRecords={() => setTab('records')} />}
         {tab === 'settings' && <SettingsView settings={settings} session={session} onChange={updateSettings} />}
       </main>
     </div>
