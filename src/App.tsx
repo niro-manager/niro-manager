@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import { ChartsView } from './charts/ChartsView.tsx'
+import { FuelEntryView } from './entry/FuelEntryView.tsx'
 import { RecordsView } from './records/RecordsView.tsx'
 import { useGoogleSession } from './session/useGoogleSession.ts'
 import { SettingsView } from './settings/SettingsView.tsx'
 import { loadSettings, saveSettings, type Settings } from './settings/settings.ts'
-import type { Logbook } from './sheets/readLogbook.ts'
+import { readLogbook, type Logbook } from './sheets/readLogbook.ts'
 
-type Tab = 'records' | 'charts' | 'settings'
+type Tab = 'records' | 'entry' | 'charts' | 'settings'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'records', label: '기록' },
+  { id: 'entry', label: '입력' },
   { id: 'charts', label: '월별 차트' },
   { id: 'settings', label: '설정' },
 ]
@@ -29,6 +31,12 @@ export default function App() {
     setSettings(next)
   }
 
+  // 저장 후 목록·차트가 새 기록을 반영하도록 다시 읽는다. 실패하면 기록 화면에서 다시 읽게 둔다.
+  const reloadAfterSave = () => {
+    setLogbook(null)
+    if (session.token) void readLogbook(session.token, settings).then(setLogbook, () => undefined)
+  }
+
   const signOut = async () => {
     await session.signOut()
     setLogbook(null)
@@ -39,7 +47,7 @@ export default function App() {
       <header className="app-header">
         <h1>Niro Manager</h1>
         <div className="row">
-          <span className={`badge badge-${settings.target}`}>{settings.target === 'copy' ? '테스트 복사본' : '원본'} · 읽기 전용</span>
+          <span className={`badge badge-${settings.target}`}>{settings.target === 'copy' ? '테스트 복사본' : '원본 · 읽기 전용'}</span>
           {session.token ? (
             <button type="button" className="secondary small" onClick={signOut}>
               로그아웃
@@ -66,6 +74,7 @@ export default function App() {
       </nav>
       <main>
         {tab === 'records' && <RecordsView settings={settings} session={session} logbook={logbook} onLoaded={setLogbook} />}
+        {tab === 'entry' && <FuelEntryView settings={settings} session={session} onSaved={reloadAfterSave} />}
         {tab === 'charts' && <ChartsView logbook={logbook} onGoToRecords={() => setTab('records')} />}
         {tab === 'settings' && <SettingsView settings={settings} session={session} onChange={updateSettings} />}
       </main>

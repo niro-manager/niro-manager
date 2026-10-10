@@ -25,7 +25,7 @@ describe('batchGetValues', () => {
     const fetchImpl = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => jsonResponse(200, { valueRanges: [{ values: [[1]] }, {}] }))
     const result = await batchGetValues('TOKEN', 'ID', ['a', 'b'], fetchImpl)
     expect(result).toEqual([[[1]], []])
-    expect(fetchImpl.mock.calls[0]?.[1]).toEqual({ headers: { Authorization: 'Bearer TOKEN' } })
+    expect(fetchImpl.mock.calls[0]?.[1]).toEqual({ method: 'GET', headers: { Authorization: 'Bearer TOKEN' } })
   })
 
   it.each([

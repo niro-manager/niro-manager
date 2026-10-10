@@ -108,3 +108,12 @@ table { border-collapse: collapse; width: 100%; font-size: 0.85rem; font-variant
 th, td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
 th[scope='row'], thead th:first-child { text-align: left; }
 .muted { color: var(--muted); }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+input[type='date'], input[inputmode] { font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); width: 100%; }
+.field-error { color: var(--error); font-size: 0.8rem; }
+.computed { color: var(--muted); font-size: 0.9rem; }
+.message.notice { color: var(--text); border-color: var(--border); background: var(--card); margin: 0 0 12px; }
+.summary { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0 0 12px; font-size: 0.9rem; }
+.summary dt { color: var(--muted); }
+.summary dd { margin: 0; }

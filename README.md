@@ -4,7 +4,7 @@
 
 ## 현재 상태
 
-MVP 1단계(읽기 전용) 개발 중입니다. Vite + React + TypeScript 앱, PWA manifest·서비스 워커, Google 로그인(`drive.file`)과 Picker 파일 선택, 주유·정비 기록 읽기와 목록, 월별 차트(주유비·주유량·주유 단가·정비비), 설정 백업·불러오기를 만들었습니다. 실제 Google 계정 연결은 [Google 설정](docs/GOOGLE_SETUP.md) 후 확인합니다. 원본 스프레드시트는 읽기만 했고 수정하지 않았습니다.
+MVP 1단계(읽기 전용) 개발 중입니다. Vite + React + TypeScript 앱, PWA manifest·서비스 워커, Google 로그인(`drive.file`)과 Picker 파일 선택, 주유·정비 기록 읽기와 목록, 월별 차트(주유비·주유량·주유 단가·정비비), 설정 백업·불러오기, 주유 입력(테스트용 복사본에만 저장)을 만들었습니다. 원본 쓰기는 사용자 승인 전까지 코드에서 잠겨 있습니다. 실제 Google 계정 연결은 [Google 설정](docs/GOOGLE_SETUP.md) 후 확인합니다. 원본 스프레드시트는 읽기만 했고 수정하지 않았습니다.
 
 GitHub 저장소: `Hoyasiro/Niro-Manager` (Private). 준비 문서 PR #1은 사용자 승인 후 main에 병합되었습니다. 분석 대상 시트를 확정하고 읽기 전용으로 구조를 분석했습니다(`docs/SHEET_ANALYSIS.md`).
 
@@ -47,6 +47,7 @@ npm run preview    # 빌드 결과 확인 (서비스 워커는 빌드에서만 �
 - `src/auth/`: Google Identity Services 토큰 로그인(토큰은 메모리에만)
 - `src/sheets/`: Sheets API 어댑터(읽기, 오류 구분), Google Picker 파일 선택
 - `src/records/`: 기록 목록 화면
+- `src/entry/`, `src/domain/fuelInput.ts`, `src/sheets/fuelWriter.ts`: 주유 입력, 쓰기 위치 계산(추가/날짜순 끼워 넣기), batchUpdate 쓰기와 저장 후 검증
 - `src/domain/monthly.ts`, `src/charts/`: 월별 집계(주유 단가는 리터 가중 평균)와 SVG 차트
 - `src/settings/`: 연결할 시트 설정, localStorage 저장, JSON 백업·불러오기
 - `public/manifest.webmanifest`, `public/sw.js`: PWA 설정과 앱 셸 캐시
