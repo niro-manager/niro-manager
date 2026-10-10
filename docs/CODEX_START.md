@@ -4,7 +4,7 @@
 
 GitHub에 `Hoyasiro/Niro-Manager`가 Private로 생성되었는지 확인합니다. Private 저장소 생성은 확인했습니다. Codex 작업 환경 연결은 아직 확인하지 않았습니다.
 
-준비 문서는 `chore/project-setup` 같은 별도 브랜치로 올리고 main을 대상으로 PR을 만듭니다. 준비 PR이 미병합 상태라면 그 브랜치를 명시해 문서를 읽게 합니다. 사용자 승인 후 병합된 경우 main에서 새 작업 브랜치를 만듭니다.
+준비 문서 PR #1(`chore/project-setup`)은 사용자 승인 후 main에 병합되었습니다. 이후 작업은 main에서 새 작업 브랜치를 만들어 진행합니다.
 
 ## Codex 작업 환경
 

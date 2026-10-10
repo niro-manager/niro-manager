@@ -6,7 +6,7 @@
 
 프로젝트 준비 단계입니다. 앱 기능, Google 인증, Sheets 연결, PWA 설치 및 배포는 아직 구현하지 않았습니다. 실제 원본 스프레드시트는 열거나 수정하지 않았습니다.
 
-GitHub 저장소: `Hoyasiro/Niro-Manager` (Private). 준비 문서는 `chore/project-setup` 브랜치의 PR로 전달하며 사용자 검토를 기다립니다.
+GitHub 저장소: `Hoyasiro/Niro-Manager` (Private). 준비 문서 PR #1은 사용자 승인 후 main에 병합되었습니다. 현재 분석 대상 `차계부` 파일과 탭을 사용자와 확정하는 단계입니다.
 
 ## 확정된 범위
 
@@ -22,6 +22,7 @@ GitHub 저장소: `Hoyasiro/Niro-Manager` (Private). 준비 문서는 `chore/pro
 - `AGENTS.md`: Codex 작업 규칙, 아키텍처 원칙, 데이터 보호 및 브랜치/PR 규칙
 - `CLAUDE.md`: 확정 요구사항, 진행 상황, 미결정 사항 및 TODO
 - `docs/CODEX_START.md`: Codex에서 개발을 이어가는 절차
+- `docs/PWA_GUIDE.md`: PWA 생성·배포 규칙(GitHub Pages, manifest id, 캐시, 백업)
 - `.github/pull_request_template.md`: 변경 내용과 검증을 기록하는 PR 양식
 
 ## 개발 시작
