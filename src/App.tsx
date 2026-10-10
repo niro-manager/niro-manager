@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChartsView } from './charts/ChartsView.tsx'
-import { FuelEntryView } from './entry/FuelEntryView.tsx'
+import { EntryView } from './entry/EntryView.tsx'
 import { RecordsView } from './records/RecordsView.tsx'
 import { useGoogleSession } from './session/useGoogleSession.ts'
 import { SettingsView } from './settings/SettingsView.tsx'
@@ -74,7 +74,7 @@ export default function App() {
       </nav>
       <main>
         {tab === 'records' && <RecordsView settings={settings} session={session} logbook={logbook} onLoaded={setLogbook} />}
-        {tab === 'entry' && <FuelEntryView settings={settings} session={session} onSaved={reloadAfterSave} />}
+        {tab === 'entry' && <EntryView settings={settings} session={session} onSaved={reloadAfterSave} />}
         {tab === 'charts' && <ChartsView logbook={logbook} onGoToRecords={() => setTab('records')} />}
         {tab === 'settings' && <SettingsView settings={settings} session={session} onChange={updateSettings} />}
       </main>

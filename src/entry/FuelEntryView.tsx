@@ -1,9 +1,10 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useState, type FormEvent } from 'react'
 import { expectedCost, validateFuelForm, type FuelForm } from '../domain/fuelInput'
-import { formatDate, formatKm, formatLiters, formatWon } from '../format'
+import { today, formatDate, formatKm, formatLiters, formatWon } from '../format'
 import type { GoogleSession } from '../session/useGoogleSession'
 import type { Settings } from '../settings/settings'
-import { checkWriteAllowed, commitFuelWrite, planFuelWrite, type FuelWritePlan, type FuelWriteResult } from '../sheets/fuelWriter'
+import { commitFuelWrite, planFuelWrite, type FuelWritePlan, type FuelWriteResult } from '../sheets/fuelWriter'
+import { Field } from './Field'
 import { SheetsError } from '../sheets/sheetsClient'
 
 interface Props {
@@ -15,11 +16,6 @@ interface Props {
 
 type Stage = { kind: 'form' } | { kind: 'confirm'; plan: FuelWritePlan } | { kind: 'done'; result: FuelWriteResult; plan: FuelWritePlan }
 
-function today(): string {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-}
-
 const emptyForm = (): FuelForm => ({ date: today(), unitPrice: '', liters: '', manualCostEnabled: false, manualCost: '', odometerKm: '', memo: '' })
 
 export function FuelEntryView({ settings, session, onSaved }: Props) {
@@ -29,7 +25,6 @@ export function FuelEntryView({ settings, session, onSaved }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const guard = checkWriteAllowed(settings)
   const set = <K extends keyof FuelForm>(key: K, value: FuelForm[K]) => setForm((f) => ({ ...f, [key]: value }))
 
   const withToken = async (): Promise<string | null> => session.token ?? (await session.signIn())
@@ -78,24 +73,11 @@ export function FuelEntryView({ settings, session, onSaved }: Props) {
     }
   }
 
-  if (!guard.ok) {
-    return (
-      <section className="card">
-        <h2>주유 입력</h2>
-        <p>{guard.reason}</p>
-      </section>
-    )
-  }
-
   const preview = form.manualCostEnabled ? null : validateFuelForm({ ...form, memo: '' })
   const autoCost = preview?.ok ? expectedCost(preview.input) : null
 
   return (
     <>
-      <p className="message notice">
-        <strong>{settings.spreadsheetName}</strong>에 저장합니다(테스트용 복사본).
-      </p>
-
       {stage.kind === 'done' && (
         <section className="card" role="status">
           <h2>저장했습니다</h2>
@@ -185,16 +167,6 @@ export function FuelEntryView({ settings, session, onSaved }: Props) {
         </p>
       )}
     </>
-  )
-}
-
-function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
-  return (
-    <label>
-      {label}
-      {children}
-      {error && <span className="field-error">{error}</span>}
-    </label>
   )
 }
 

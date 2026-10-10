@@ -19,3 +19,8 @@ export function formatDate(isoDate: string): string {
   const weekday = new Date(`${isoDate}T00:00:00Z`).getUTCDay()
   return `${isoDate} (${WEEKDAYS[weekday]})`
 }
+
+/** 기기 현지 시간 기준 오늘 `yyyy-mm-dd` */
+export function today(now: Date = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}

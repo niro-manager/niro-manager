@@ -117,3 +117,6 @@ input[type='date'], input[inputmode] { font: inherit; padding: 8px 10px; border:
 .summary { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0 0 12px; font-size: 0.9rem; }
 .summary dt { color: var(--muted); }
 .summary dd { margin: 0; }
+.items { display: grid; gap: 8px; }
+.items .row { flex-wrap: nowrap; }
+.items input { flex: 1; font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }

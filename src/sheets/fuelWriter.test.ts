@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { CellValue } from '../domain/cells'
 import { isoToSerial, type FuelInput } from '../domain/fuelInput'
 import { DEFAULT_SETTINGS, type Settings } from '../settings/settings'
-import { buildFuelWriteRequests, checkWriteAllowed, commitFuelWrite, planFuelWrite, verifyFuelRows } from './fuelWriter'
+import { buildFuelWriteRequests, commitFuelWrite, planFuelWrite, verifyFuelRows } from './fuelWriter'
+import { checkWriteAllowed } from './writeGuard'
 import { SheetsError } from './sheetsClient'
 
 // 테스트 값은 실제 차계부가 아닌 임의 값이다.
