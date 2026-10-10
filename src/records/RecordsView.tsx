@@ -1,40 +1,26 @@
 import { useState } from 'react'
 import type { FuelRecord, MaintenanceRecord, RowWarning } from '../domain/types'
 import { formatDate, formatKm, formatLiters, formatWon } from '../format'
-import type { GoogleSession } from '../session/useGoogleSession'
 import type { Settings } from '../settings/settings'
-import { readLogbook, type Logbook } from '../sheets/readLogbook'
-import { SheetsError } from '../sheets/sheetsClient'
+import type { Logbook } from '../sheets/readLogbook'
 
 interface Props {
   settings: Settings
-  session: GoogleSession
+  signedIn: boolean
+  signingIn: boolean
   logbook: Logbook | null
-  onLoaded: (logbook: Logbook) => void
+  loading: boolean
+  error: string | null
+  /** 토큰이 있으면 다시 읽고, 없으면 로그인(로그인 후 자동으로 읽음) */
+  onRefresh: () => Promise<void>
 }
 
 type Kind = 'fuel' | 'maintenance'
 const PAGE_SIZE = 30
 
-export function RecordsView({ settings, session, logbook, onLoaded }: Props) {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+export function RecordsView({ settings, signedIn, signingIn, logbook, loading, error, onRefresh }: Props) {
   const [kind, setKind] = useState<Kind>('fuel')
   const [visible, setVisible] = useState(PAGE_SIZE)
-  const { token, expire } = session
-
-  const load = async (accessToken: string) => {
-    setLoading(true)
-    setError(null)
-    try {
-      onLoaded(await readLogbook(accessToken, settings))
-    } catch (e) {
-      if (e instanceof SheetsError && e.kind === 'auth') expire()
-      setError(e instanceof Error ? e.message : '시트를 읽지 못했습니다.')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   if (!settings.spreadsheetId) {
     return (
@@ -43,11 +29,6 @@ export function RecordsView({ settings, session, logbook, onLoaded }: Props) {
         <p>먼저 설정에서 차계부 스프레드시트를 선택해 주세요.</p>
       </section>
     )
-  }
-
-  const refresh = async () => {
-    const accessToken = token ?? (await session.signIn())
-    if (accessToken) await load(accessToken)
   }
 
   const fuel = logbook ? [...logbook.fuel].reverse() : []
@@ -62,8 +43,8 @@ export function RecordsView({ settings, session, logbook, onLoaded }: Props) {
             <strong>{settings.spreadsheetName || '선택한 스프레드시트'}</strong>
             {logbook && <p className="hint">{logbook.loadedAt.toLocaleString('ko-KR')}에 읽음</p>}
           </div>
-          <button type="button" onClick={refresh} disabled={loading || session.signingIn}>
-            {loading ? '읽는 중…' : !token ? 'Google 로그인 후 읽기' : logbook ? '새로고침' : '시트 읽기'}
+          <button type="button" onClick={() => void onRefresh()} disabled={loading || signingIn}>
+            {loading ? '읽는 중…' : !signedIn ? 'Google 로그인 후 읽기' : logbook ? '새로고침' : '시트 읽기'}
           </button>
         </div>
         {error && (

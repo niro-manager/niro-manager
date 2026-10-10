@@ -46,7 +46,7 @@ npm run preview    # 빌드 결과 확인 (서비스 워커는 빌드에서만 �
 - `src/domain/`: 시트 값 해석(날짜 직렬값, 빈 칸과 0 구분), 주유(`시트1`)·정비(`시트2`) 기록 매핑
 - `src/auth/`: Google Identity Services 토큰 로그인(토큰은 메모리에만)
 - `src/sheets/`: Sheets API 어댑터(읽기, 오류 구분), Google Picker 파일 선택
-- `src/records/`: 기록 목록 화면
+- `src/records/`: 기록 목록 화면, 시트 읽기 상태(`useLogbook.ts`: 로그인 직후 자동 읽기, 앱 복귀 시 5분 경과면 재읽기)
 - `src/entry/`, `src/domain/fuelInput.ts`, `src/domain/maintenanceInput.ts`, `src/sheets/fuelWriter.ts`, `src/sheets/maintenanceWriter.ts`: 주유·정비 입력, 쓰기 위치 계산(추가/날짜순 끼워 넣기), batchUpdate 쓰기와 저장 후 검증
 - `src/sheets/writeGuard.ts`: 쓰기 대상 제한(원본 쓰기 잠금)
 - `src/domain/monthly.ts`, `src/charts/`: 월별 집계(주유 단가는 리터 가중 평균)와 SVG 차트

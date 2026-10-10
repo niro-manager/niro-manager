@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { isTokenValid, requestAccessToken, revokeAccessToken, type AccessToken } from '../auth/googleAuth'
 import { readGoogleConfig, type GoogleConfig } from '../config'
 
@@ -13,12 +13,19 @@ export interface GoogleSession {
   signOut: () => Promise<void>
   /** API가 401을 돌려줬을 때 호출해 토큰을 버린다 */
   expire: () => void
+  /** 지금 시점에 유효한 토큰(이벤트 처리기에서 쓰기 위함). 로그인 창은 열지 않는다 */
+  currentToken: () => string | null
 }
 
 const config = readGoogleConfig()
 
 export function useGoogleSession(): GoogleSession {
-  const [accessToken, setAccessToken] = useState<AccessToken | null>(null)
+  const [accessToken, setAccessTokenState] = useState<AccessToken | null>(null)
+  const tokenRef = useRef<AccessToken | null>(null)
+  const setAccessToken = useCallback((next: AccessToken | null) => {
+    tokenRef.current = next
+    setAccessTokenState(next)
+  }, [])
   const [signingIn, setSigningIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -39,15 +46,16 @@ export function useGoogleSession(): GoogleSession {
     } finally {
       setSigningIn(false)
     }
-  }, [])
+  }, [setAccessToken])
 
   const signOut = useCallback(async () => {
     const current = accessToken
     setAccessToken(null)
     if (current) await revokeAccessToken(current).catch(() => undefined)
-  }, [accessToken])
+  }, [accessToken, setAccessToken])
 
-  const expire = useCallback(() => setAccessToken(null), [])
+  const expire = useCallback(() => setAccessToken(null), [setAccessToken])
+  const currentToken = useCallback(() => (isTokenValid(tokenRef.current) ? tokenRef.current.token : null), [])
 
   return {
     config,
@@ -57,5 +65,6 @@ export function useGoogleSession(): GoogleSession {
     signIn,
     signOut,
     expire,
+    currentToken,
   }
 }
