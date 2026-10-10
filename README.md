@@ -6,7 +6,7 @@
 
 MVP 1단계(읽기 전용) 개발 중입니다. Vite + React + TypeScript 앱, PWA manifest·서비스 워커, Google 로그인(`drive.file`)과 Picker 파일 선택, 주유·정비 기록 읽기와 목록, 월별 차트(주유비·주유량·주유 단가·정비비), 설정 백업·불러오기, 주유·정비 입력(테스트용 복사본에만 저장)을 만들었습니다. 원본 쓰기는 사용자 승인 전까지 코드에서 잠겨 있습니다. 실제 Google 계정 연결은 [Google 설정](docs/GOOGLE_SETUP.md) 후 확인합니다. 원본 스프레드시트는 읽기만 했고 수정하지 않았습니다.
 
-GitHub 저장소: `Hoyasiro/Niro-Manager` (Private). 준비 문서 PR #1은 사용자 승인 후 main에 병합되었습니다. 분석 대상 시트를 확정하고 읽기 전용으로 구조를 분석했습니다(`docs/SHEET_ANALYSIS.md`).
+GitHub 저장소: `Hoyasiro/Niro-Manager` (Private, `niro-manager/niro-manager`로 이전 예정). 준비 문서 PR #1과 MVP PR #2가 사용자 승인 후 main에 병합되었습니다. 저장소 이전과 Google Cloud 설정 후 GitHub Pages로 배포됩니다.
 
 ## 확정된 범위
 
