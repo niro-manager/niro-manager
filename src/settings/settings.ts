@@ -9,7 +9,7 @@ export interface Settings {
   spreadsheetId: string
   /** 화면 표시용 파일 이름 */
   spreadsheetName: string
-  /** 연결한 시트가 테스트용 복사본인지 원본인지. 1단계는 읽기 전용이라 표시용이다 */
+  /** 연결한 시트가 테스트용 복사본인지 원본인지. 저장 대상 안내와 쓰기 검사에 사용한다 */
   target: SheetTarget
   fuelSheetName: string
   maintenanceSheetName: string

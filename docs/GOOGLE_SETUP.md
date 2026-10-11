@@ -55,9 +55,16 @@ Codex Cloud 실행 환경의 변수는 GitHub Actions에 자동 전달되지 않
 
 ## 6. 사용
 
-1. 앱 설정 화면에서 **Google Drive에서 선택** → 로그인 → 사용자가 지정한 **테스트 복사본** 스프레드시트를 고릅니다.
-2. 기록 화면에서 **시트 읽기**를 누릅니다.
+1. 앱 설정 화면에서 **Google Drive에서 선택** → 로그인 → 사용할 차계부 스프레드시트를 고릅니다.
+2. 원본에 저장하려면 연결 대상을 **원본**으로 선택하고 **대상·탭 이름 저장**을 누릅니다.
+3. 기록·차트를 확인하고 입력 화면에서 저장 전 내용을 확인합니다.
 
 액세스 토큰은 약 1시간 유효하며 메모리에만 둡니다. 만료되거나 앱을 다시 열면 로그인 버튼을 다시 누릅니다. 고른 파일에 대한 접근 허용은 같은 OAuth 클라이언트를 쓰는 동안 유지되므로, 설정 백업을 불러오면 파일을 다시 고르지 않아도 됩니다.
 
 배포 순서와 사용자 확인 항목은 [이전 후 배포 점검](DEPLOYMENT_CHECKLIST.md)을 참고합니다.
+
+## API 키 오류 해결 기록
+
+2026-10-11 경로를 포함한 리퍼러 제한에서 Picker API 키 오류가 발생했습니다. `https://niro-manager.github.io/*`로 변경한 뒤 사용자가 정상 동작을 확인했습니다. 키 제한만 변경하면 재배포가 필요하지 않습니다.
+
+[사용자 인증 정보](https://console.cloud.google.com/apis/credentials) · [Picker API](https://console.cloud.google.com/apis/library/picker.googleapis.com) · [GitHub Variables](https://github.com/niro-manager/niro-manager/settings/variables/actions) · [배포 Actions](https://github.com/niro-manager/niro-manager/actions/workflows/deploy.yml)

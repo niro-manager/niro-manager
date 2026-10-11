@@ -115,7 +115,7 @@ export function SettingsView({ settings, session, onChange }: Props) {
           </label>
           <button type="submit">대상·탭 이름 저장</button>
         </form>
-        <p className="hint">1단계는 읽기 전용입니다. 앱은 시트에 쓰지 않습니다.</p>
+        <p className="hint">입력 화면에서 저장하면 선택한 파일에 기록됩니다. 원본을 사용하려면 파일을 선택하고 연결 대상을 원본으로 저장하세요.</p>
       </section>
 
       <section className="card">

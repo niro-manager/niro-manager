@@ -25,7 +25,7 @@ export function EntryView({ settings, session, onSaved }: Props) {
   return (
     <>
       <p className="message notice">
-        <strong>{settings.spreadsheetName}</strong>에 저장합니다(테스트용 복사본).
+        <strong>{settings.spreadsheetName}</strong>에 저장합니다({settings.target === 'original' ? '원본 차계부' : '테스트용 복사본'}).
       </p>
       <div className="segmented" role="tablist">
         <button type="button" role="tab" aria-selected={kind === 'fuel'} className={kind === 'fuel' ? 'active' : ''} onClick={() => setKind('fuel')}>
