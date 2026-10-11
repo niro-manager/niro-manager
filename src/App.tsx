@@ -8,6 +8,7 @@ import { useGoogleSession, type GoogleSession } from './session/useGoogleSession
 import { useOnline } from './session/useOnline.ts'
 import { SettingsView } from './settings/SettingsView.tsx'
 import { loadSettings, saveSettings, type Settings } from './settings/settings.ts'
+import { ORIGINAL_WRITE_ENABLED } from './sheets/writeGuard.ts'
 
 type Tab = 'records' | 'entry' | 'charts' | 'settings'
 
@@ -94,7 +95,7 @@ export default function App() {
       <header className="app-header">
         <h1>Niro Manager</h1>
         <div className="row">
-          <span className={`badge badge-${settings.target}`}>{settings.target === 'copy' ? '테스트 복사본' : '원본 · 읽기 전용'}</span>
+          <span className={`badge badge-${settings.target}`}>{settings.target === 'copy' ? '테스트 복사본' : ORIGINAL_WRITE_ENABLED ? '원본 · 저장 가능' : '원본 · 읽기 전용'}</span>
           {session.token ? (
             <button type="button" className="secondary small" onClick={signOut}>
               로그아웃
