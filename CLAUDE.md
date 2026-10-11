@@ -47,7 +47,7 @@ Interactive Coding으로 중요한 설계 결정을 사용자와 합의합니다
 - [x] 테스트 복사본의 검증 행 삭제(사용자 요청), 복사본이 원본과 셀 단위로 같음을 확인
 - [x] MVP 작업을 PR #2로 전달, CI 통과 확인 후 사용자 요청으로 main에 병합(merge commit `12852e9`, 2026-10-10)
 
-준비 PR #1은 사용자가 main에 병합했고, MVP PR #2는 사용자 요청으로 Claude가 main에 병합했습니다(2026-10-10). 후속 작업은 별도 작업 브랜치와 새 PR로 진행합니다. 2026-10-11 확인: `niro-manager/niro-manager` 조직 이전·Public 전환 완료, main은 PR #3 병합 커밋 `d4b7f5d`입니다. Pages 소스는 GitHub Actions, 배포 허용 브랜치는 main입니다. 최근 배포 실행은 skipped이고 사이트는 HTTP 404입니다. 분석 결과와 특이 사항(주유비 직접 입력 행, 같은 날 여러 건, 메모 열 H/I, 정비 탭의 여러 행 기록)은 `docs/SHEET_ANALYSIS.md`를 참고합니다. 검증: typecheck·lint·vitest 93개·build 통과. 차트는 임의 데이터로 390px 폭 라이트·다크 모드 렌더링과 툴팁·표 보기를 확인했습니다. 헤드리스 Chromium에서 서비스 워커·manifest·설정 백업을 확인했고, Google 엔드포인트를 가짜 응답으로 대체해 로그인→파일 선택→두 탭 읽기→목록·경고·401 재로그인 흐름을 확인했습니다. 실제 Google 계정 연결은 사용자의 Google Cloud 설정 후 확인해야 합니다. 원본 시트는 수정하지 않았습니다.
+준비 PR #1은 사용자가 main에 병합했고, MVP PR #2는 사용자 요청으로 Claude가 main에 병합했습니다(2026-10-10). 후속 작업은 별도 작업 브랜치와 새 PR로 진행합니다. 2026-10-11 확인: `niro-manager/niro-manager` 조직 이전·Public 전환 완료, main은 PR #4 병합 커밋 `e2dfab0`입니다. Pages 소스는 GitHub Actions, 배포 허용 브랜치는 main입니다. 최근 배포 실행 `38129425891`은 CLIENT_ID·API_KEY 누락으로 설정 검사에서 실패했습니다. 이전 사이트 점검은 HTTP 404였으며 이번에는 HTTP 응답을 재확인하지 않았습니다. 분석 결과와 특이 사항(주유비 직접 입력 행, 같은 날 여러 건, 메모 열 H/I, 정비 탭의 여러 행 기록)은 `docs/SHEET_ANALYSIS.md`를 참고합니다. 검증: typecheck·lint·vitest 93개·build 통과. 차트는 임의 데이터로 390px 폭 라이트·다크 모드 렌더링과 툴팁·표 보기를 확인했습니다. 헤드리스 Chromium에서 서비스 워커·manifest·설정 백업을 확인했고, Google 엔드포인트를 가짜 응답으로 대체해 로그인→파일 선택→두 탭 읽기→목록·경고·401 재로그인 흐름을 확인했습니다. 실제 Google 계정 연결은 사용자의 Google Cloud 설정 후 확인해야 합니다. 원본 시트는 수정하지 않았습니다.
 
 ## 다음 단계 TODO
 
@@ -141,3 +141,12 @@ PWA 작업은 `docs/PWA_GUIDE.md`를 따릅니다. 앱 하나 = 사이트 주소
 - 올바른 매핑을 해당 빌드 프로세스에만 적용해 설정 검사·빌드 통과 확인. 영구 환경 설정 및 GitHub Variables는 변경하지 않음.
 - 검사 스크립트가 API 키 형식도 확인하고, 다른 변수 칸에 있는 올바른 형식의 값을 이름만으로 안내하도록 보완.
 - typecheck·lint·vitest 98개·올바르게 매핑한 값으로 build 통과. 실제 Google 로그인과 Pages 배포는 미검증.
+
+### 이전 후 최신 배포 상태 점검 (2026-10-11)
+
+- 조직 소유·Public·기본 브랜치 main 확인. main `e2dfab0` CI 성공, 배포는 Google 설정 검사에서 중단.
+- PR #5 `24e3968`의 github-pages 환경 Variables·Secrets fallback 수정과 CI(typecheck·lint·test·build) 성공 확인. 병합과 실제 배포는 남음.
+- docs/DEPLOYMENT_CHECKLIST.md의 오래된 main·skipped 상태를 갱신하고 Google Cloud 설정, GitHub 변수 등록, 실제 계정·PWA 확인을 사용자 작업으로 분리.
+- Google Cloud 관리 연결 없음. GitHub 설정값 등록 위치·값은 미확인. Codex 환경의 이전 매핑 오류 기록은 이번에 재검증하지 않음.
+- 로컬 git fetch는 실행 환경 프록시 연결 실패. GitHub 연결 도구로 최신 커밋·파일·Actions 결과 확인. 문서만 변경했으므로 새 로컬 빌드·테스트는 실행하지 않음.
+- 원본 시트·인증 범위·원본 쓰기 잠금 변경 없음. 사용자 승인 전 main 병합 금지.
