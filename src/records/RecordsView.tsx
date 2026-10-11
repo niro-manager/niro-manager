@@ -1,35 +1,23 @@
 import { useState } from 'react'
 import type { FuelRecord, MaintenanceRecord, RowWarning } from '../domain/types'
 import { formatDate, formatKm, formatLiters, formatWon } from '../format'
-import type { Settings } from '../settings/settings'
 import type { Logbook } from '../sheets/readLogbook'
 
 interface Props {
-  settings: Settings
-  signedIn: boolean
-  signingIn: boolean
+  /** 연결된 스프레드시트 이름. 아직 연결 정보를 읽지 못했으면 null */
+  spreadsheetName: string | null
   logbook: Logbook | null
   loading: boolean
   error: string | null
-  /** 토큰이 있으면 다시 읽고, 없으면 로그인(로그인 후 자동으로 읽음) */
   onRefresh: () => Promise<void>
 }
 
 type Kind = 'fuel' | 'maintenance'
 const PAGE_SIZE = 30
 
-export function RecordsView({ settings, signedIn, signingIn, logbook, loading, error, onRefresh }: Props) {
+export function RecordsView({ spreadsheetName, logbook, loading, error, onRefresh }: Props) {
   const [kind, setKind] = useState<Kind>('fuel')
   const [visible, setVisible] = useState(PAGE_SIZE)
-
-  if (!settings.spreadsheetId) {
-    return (
-      <section className="card">
-        <h2>기록</h2>
-        <p>먼저 설정에서 차계부 스프레드시트를 선택해 주세요.</p>
-      </section>
-    )
-  }
 
   const fuel = logbook ? [...logbook.fuel].reverse() : []
   const maintenance = logbook ? [...logbook.maintenance].reverse() : []
@@ -40,11 +28,11 @@ export function RecordsView({ settings, signedIn, signingIn, logbook, loading, e
       <section className="card">
         <div className="row spread">
           <div>
-            <strong>{settings.spreadsheetName || '선택한 스프레드시트'}</strong>
+            <strong>{spreadsheetName ?? '차계부'}</strong>
             {logbook && <p className="hint">{logbook.loadedAt.toLocaleString('ko-KR')}에 읽음</p>}
           </div>
-          <button type="button" onClick={() => void onRefresh()} disabled={loading || signingIn}>
-            {loading ? '읽는 중…' : !signedIn ? 'Google 로그인 후 읽기' : logbook ? '새로고침' : '시트 읽기'}
+          <button type="button" onClick={() => void onRefresh()} disabled={loading || spreadsheetName === null}>
+            {loading ? '읽는 중…' : logbook ? '새로고침' : '시트 읽기'}
           </button>
         </div>
         {error && (

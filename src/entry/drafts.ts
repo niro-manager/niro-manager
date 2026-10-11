@@ -69,8 +69,3 @@ export function clearDraft(kind: DraftKind, store: DraftStorage | null = storage
     // 무시
   }
 }
-
-export function clearAllDrafts(store: DraftStorage | null = storage()): void {
-  clearDraft('fuel', store)
-  clearDraft('maintenance', store)
-}

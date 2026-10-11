@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { CellValue } from '../domain/cells'
 import { isoToSerial, type FuelInput } from '../domain/fuelInput'
-import { DEFAULT_SETTINGS, type Settings } from '../settings/settings'
 import { buildFuelWriteRequests, commitFuelWrite, planFuelWrite, verifyFuelRows } from './fuelWriter'
 import { checkWriteAllowed } from './writeGuard'
-import { SheetsError } from './sheetsClient'
+import { SheetsError, type SheetConnection, type SheetsBackend } from './sheetsClient'
 
 // 테스트 값은 실제 차계부가 아닌 임의 값이다.
-const SETTINGS: Settings = { ...DEFAULT_SETTINGS, spreadsheetId: 'COPY_ID_0123456789abcdef', spreadsheetName: '테스트 차계부 (테스트 복사본)', target: 'copy' }
+const COPY_NAME = '테스트 차계부 (테스트 복사본)'
 const INPUT: FuelInput = { date: '2026-01-12', unitPrice: 1500, liters: 20, manualCost: null, odometerKm: 1234, memo: '=위험한 메모' }
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 type Cell = number | string | { f: string } | null
@@ -78,26 +77,24 @@ class FakeSheet {
     }
   }
 
-  fetch: typeof fetch = async (input, init) => {
-    const url = new URL(String(input))
-    const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200 })
-    if (url.pathname.endsWith(':batchUpdate')) {
+  backend: SheetsBackend = {
+    getInfo: async () => ({ name: COPY_NAME }),
+    getSheetId: async (name) => (name === '시트1' ? 0 : null),
+    batchUpdate: async (requests) => {
+      this.apply(requests)
       if (this.failNextUpdate) {
-        this.failNextUpdate = null
-        this.apply(JSON.parse(String(init?.body)).requests) // 서버에는 반영됐지만 응답이 끊긴 경우
-        throw new TypeError('Failed to fetch')
+        this.failNextUpdate = null // 서버에는 반영됐지만 응답이 끊긴 경우
+        throw new SheetsError('network', '네트워크에 연결할 수 없습니다.')
       }
-      this.apply(JSON.parse(String(init?.body)).requests)
-      return json({})
-    }
-    if (url.pathname.endsWith('/values:batchGet')) {
-      const range = url.searchParams.get('ranges')!
-      const m = /!A(\d+):I(\d*)$/.exec(range)!
-      return json({ valueRanges: [{ values: this.values(Number(m[1]), m[2] ? Number(m[2]) : 10_000) }] })
-    }
-    return json({ sheets: [{ properties: { sheetId: 0, title: '시트1' } }] })
+    },
+    batchGetValues: async ([range]) => {
+      const m = /!A(\d+):I(\d*)$/.exec(range!)!
+      return [this.values(Number(m[1]), m[2] ? Number(m[2]) : 10_000)]
+    },
   }
 }
+
+const conn = (sheet: FakeSheet, spreadsheetName = COPY_NAME): SheetConnection => ({ backend: sheet.backend, spreadsheetName, fuelSheetName: '시트1', maintenanceSheetName: '시트2' })
 
 const twoRecords = () =>
   new FakeSheet([
@@ -106,22 +103,18 @@ const twoRecords = () =>
   ])
 
 describe('checkWriteAllowed', () => {
-  it('승인된 원본 쓰기를 허용하지만 파일이 없으면 막는다', () => {
-    expect(checkWriteAllowed({ ...SETTINGS, target: 'original' }).ok).toBe(true)
-    expect(checkWriteAllowed({ ...SETTINGS, target: 'original', spreadsheetId: '' }).ok).toBe(false)
-  })
-  it('복사본 표시인데 이름에 "복사본"이 없으면 막는다', () => {
-    expect(checkWriteAllowed({ ...SETTINGS, spreadsheetName: '히로_차계부' }).ok).toBe(false)
-    expect(checkWriteAllowed(SETTINGS).ok).toBe(true)
+  it('승인된 원본 쓰기와 복사본 쓰기를 허용한다', () => {
+    expect(checkWriteAllowed({ spreadsheetName: '차계부' }).ok).toBe(true)
+    expect(checkWriteAllowed({ spreadsheetName: COPY_NAME }).ok).toBe(true)
   })
 })
 
 describe('주유 기록 쓰기', () => {
   it('최신 날짜는 마지막 행 아래에 추가하고 수식을 함께 쓴다', async () => {
     const sheet = twoRecords()
-    const plan = await planFuelWrite('T', SETTINGS, { ...INPUT, date: '2026-01-25' }, sheet.fetch)
+    const plan = await planFuelWrite(conn(sheet), { ...INPUT, date: '2026-01-25' })
     expect(plan.placement).toEqual({ row: 4, mode: 'append' })
-    const result = await commitFuelWrite('T', SETTINGS, plan, sheet.fetch)
+    const result = await commitFuelWrite(conn(sheet), plan)
     expect(result).toEqual({ row: 4, mode: 'append' })
     expect(sheet.grid[3]).toEqual([isoToSerial('2026-01-25'), { f: '=vlookup(weekday(A4),$J$2:$K$8,2,0)' }, 1500, 20, { f: '=C4*D4' }, { f: '=days(A4,A3)' }, 1234, null, '=위험한 메모'])
     expect(sheet.values(4, 4)[0]?.slice(0, 6)).toEqual([isoToSerial('2026-01-25'), '일', 1500, 20, 30000, 5])
@@ -135,10 +128,10 @@ describe('주유 기록 쓰기', () => {
 
   it('과거 날짜는 A:I만 밀어 끼워 넣고 다음 기록의 경과일수를 고친다', async () => {
     const sheet = twoRecords()
-    const plan = await planFuelWrite('T', SETTINGS, INPUT, sheet.fetch)
+    const plan = await planFuelWrite(conn(sheet), INPUT)
     expect(plan.placement).toEqual({ row: 3, mode: 'insert' })
     expect(plan.shiftedRecords).toBe(1)
-    await commitFuelWrite('T', SETTINGS, plan, sheet.fetch)
+    await commitFuelWrite(conn(sheet), plan)
     const [insert] = sheet.requests[0] as any[]
     expect(insert.insertRange.range).toEqual({ sheetId: 0, startRowIndex: 2, endRowIndex: 3, startColumnIndex: 0, endColumnIndex: 9 })
     const rows = sheet.values(2, 4)
@@ -150,50 +143,49 @@ describe('주유 기록 쓰기', () => {
 
   it('가장 이른 날짜는 2행에 끼워 넣고 경과일수는 비워 둔다', async () => {
     const sheet = twoRecords()
-    const plan = await planFuelWrite('T', SETTINGS, { ...INPUT, date: '2026-01-01' }, sheet.fetch)
+    const plan = await planFuelWrite(conn(sheet), { ...INPUT, date: '2026-01-01' })
     expect(plan.placement).toEqual({ row: 2, mode: 'insert' })
-    await commitFuelWrite('T', SETTINGS, plan, sheet.fetch)
+    await commitFuelWrite(conn(sheet), plan)
     expect(sheet.values(2, 3).map((r) => r[5])).toEqual(['', 9])
   })
 
   it('결제액 직접 입력은 값으로 쓴다', async () => {
     const sheet = twoRecords()
-    const plan = await planFuelWrite('T', SETTINGS, { ...INPUT, date: '2026-01-25', manualCost: 50000 }, sheet.fetch)
-    await commitFuelWrite('T', SETTINGS, plan, sheet.fetch)
+    const plan = await planFuelWrite(conn(sheet), { ...INPUT, date: '2026-01-25', manualCost: 50000 })
+    await commitFuelWrite(conn(sheet), plan)
     expect(sheet.grid[3]?.[4]).toBe(50000)
   })
 
   it('같은 내용 기록이 있으면 계획에 표시한다', async () => {
     const sheet = twoRecords()
-    const plan = await planFuelWrite('T', SETTINGS, { date: '2026-01-10', unitPrice: 1500, liters: 16, manualCost: null, odometerKm: null, memo: null }, sheet.fetch)
+    const plan = await planFuelWrite(conn(sheet), { date: '2026-01-10', unitPrice: 1500, liters: 16, manualCost: null, odometerKm: null, memo: null })
     expect(plan.duplicate?.sheetRow).toBe(2)
   })
 
   it('계획 후 시트가 바뀌면 쓰지 않는다', async () => {
     const sheet = twoRecords()
-    const plan = await planFuelWrite('T', SETTINGS, INPUT, sheet.fetch)
+    const plan = await planFuelWrite(conn(sheet), INPUT)
     sheet.grid.push([isoToSerial('2026-01-30'), null, 1, 1, null, null, null, null, null])
-    await expect(commitFuelWrite('T', SETTINGS, plan, sheet.fetch)).rejects.toThrow('시트가 바뀌었습니다')
+    await expect(commitFuelWrite(conn(sheet), plan)).rejects.toThrow('시트가 바뀌었습니다')
     expect(sheet.requests).toHaveLength(0)
   })
 
   it('쓰기 중 연결이 끊기면 저장 여부를 알 수 없다고 알린다', async () => {
     const sheet = twoRecords()
-    const plan = await planFuelWrite('T', SETTINGS, { ...INPUT, date: '2026-01-25' }, sheet.fetch)
+    const plan = await planFuelWrite(conn(sheet), { ...INPUT, date: '2026-01-25' })
     sheet.failNextUpdate = 'network'
-    const error = await commitFuelWrite('T', SETTINGS, plan, sheet.fetch).catch((e: unknown) => e)
+    const error = await commitFuelWrite(conn(sheet), plan).catch((e: unknown) => e)
     expect(error).toBeInstanceOf(SheetsError)
     expect((error as SheetsError).message).toContain('알 수 없습니다')
     // 다시 시도하면 같은 내용 기록을 찾아 중복을 경고할 수 있다
-    const retry = await planFuelWrite('T', SETTINGS, { ...INPUT, date: '2026-01-25' }, sheet.fetch)
+    const retry = await planFuelWrite(conn(sheet), { ...INPUT, date: '2026-01-25' })
     expect(retry.duplicate?.sheetRow).toBe(4)
   })
 
   it('원본 대상에서도 저장 후 재조회하고 기존 기록을 보존한다', async () => {
     const sheet = twoRecords()
-    const original = { ...SETTINGS, target: 'original' as const, spreadsheetName: '차계부' }
-    const plan = await planFuelWrite('T', original, INPUT, sheet.fetch)
-    await commitFuelWrite('T', original, plan, sheet.fetch)
+    const plan = await planFuelWrite(conn(sheet, '차계부'), INPUT)
+    await commitFuelWrite(conn(sheet, '차계부'), plan)
     expect(sheet.values(2, 4).map((r) => r[0])).toEqual([isoToSerial('2026-01-10'), isoToSerial(INPUT.date), isoToSerial('2026-01-20')])
     expect(sheet.values(2, 4)[2]?.slice(1, 5)).toEqual(['화', 1600, 16, 50000])
   })

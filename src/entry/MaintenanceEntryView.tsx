@@ -1,17 +1,14 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { validateMaintenanceForm, type MaintenanceForm } from '../domain/maintenanceInput'
 import { today, formatDate, formatKm, formatWon } from '../format'
-import type { GoogleSession } from '../session/useGoogleSession'
-import type { Settings } from '../settings/settings'
+import type { SheetConnection } from '../sheets/sheetsClient'
 import { commitMaintenanceWrite, planMaintenanceWrite, type MaintenanceWritePlan, type MaintenanceWriteResult } from '../sheets/maintenanceWriter'
-import { SheetsError } from '../sheets/sheetsClient'
 import { clearDraft, loadDraft, saveDraft } from './drafts'
 import { OFFLINE_MESSAGE, isOffline } from './offline'
 import { DraftNotice, Field } from './Field'
 
 interface Props {
-  settings: Settings
-  session: GoogleSession
+  connection: SheetConnection
   onSaved: () => void
 }
 
@@ -19,7 +16,7 @@ type Stage = { kind: 'form' } | { kind: 'confirm'; plan: MaintenanceWritePlan } 
 
 const emptyForm = (): MaintenanceForm => ({ date: today(), items: [''], vendor: '', odometerKm: '', cost: '' })
 
-export function MaintenanceEntryView({ settings, session, onSaved }: Props) {
+export function MaintenanceEntryView({ connection, onSaved }: Props) {
   // 앱이 닫혀도 쓰던 내용이 남도록 저장하지 않은 입력만 임시 보관한다(오프라인 A+).
   const [restored, setRestored] = useState(() => loadDraft('maintenance') !== null)
   const [form, setForm] = useState<MaintenanceForm>(() => loadDraft('maintenance') ?? emptyForm())
@@ -31,9 +28,7 @@ export function MaintenanceEntryView({ settings, session, onSaved }: Props) {
 
   const set = <K extends keyof MaintenanceForm>(key: K, value: MaintenanceForm[K]) => setForm((f) => ({ ...f, [key]: value }))
   const setItem = (index: number, value: string) => setForm((f) => ({ ...f, items: f.items.map((item, i) => (i === index ? value : item)) }))
-  const withToken = async () => session.token ?? (await session.signIn())
   const handleError = (e: unknown) => {
-    if (e instanceof SheetsError && e.kind === 'auth') session.expire()
     setError(e instanceof Error ? e.message : '요청이 실패했습니다.')
   }
 
@@ -47,11 +42,9 @@ export function MaintenanceEntryView({ settings, session, onSaved }: Props) {
     }
     setErrors({})
     if (isOffline()) return setError(OFFLINE_MESSAGE)
-    const token = await withToken()
-    if (!token) return
     setBusy(true)
     try {
-      setStage({ kind: 'confirm', plan: await planMaintenanceWrite(token, settings, result.input) })
+      setStage({ kind: 'confirm', plan: await planMaintenanceWrite(connection, result.input) })
     } catch (e) {
       handleError(e)
     } finally {
@@ -63,11 +56,9 @@ export function MaintenanceEntryView({ settings, session, onSaved }: Props) {
     if (busy) return
     setError(null)
     if (isOffline()) return setError(OFFLINE_MESSAGE)
-    const token = await withToken()
-    if (!token) return
     setBusy(true)
     try {
-      const result = await commitMaintenanceWrite(token, settings, plan)
+      const result = await commitMaintenanceWrite(connection, plan)
       clearDraft('maintenance')
       setRestored(false)
       setStage({ kind: 'done', result, plan })
@@ -167,7 +158,7 @@ export function MaintenanceEntryView({ settings, session, onSaved }: Props) {
             <Field label="총액 (원, 선택 · 무료면 0, 모르면 비움)" error={errors.cost}>
               <input inputMode="decimal" value={form.cost} onChange={(e) => set('cost', e.target.value)} />
             </Field>
-            <button type="submit" disabled={busy || session.signingIn}>
+            <button type="submit" disabled={busy}>
               {busy ? '시트 확인 중…' : '확인'}
             </button>
           </form>

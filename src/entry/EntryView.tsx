@@ -1,19 +1,17 @@
 import { useState } from 'react'
-import type { GoogleSession } from '../session/useGoogleSession'
-import type { Settings } from '../settings/settings'
+import { targetOf, type SheetConnection } from '../sheets/sheetsClient'
 import { checkWriteAllowed } from '../sheets/writeGuard'
 import { FuelEntryView } from './FuelEntryView'
 import { MaintenanceEntryView } from './MaintenanceEntryView'
 
 interface Props {
-  settings: Settings
-  session: GoogleSession
+  connection: SheetConnection
   onSaved: () => void
 }
 
-export function EntryView({ settings, session, onSaved }: Props) {
+export function EntryView({ connection, onSaved }: Props) {
   const [kind, setKind] = useState<'fuel' | 'maintenance'>('fuel')
-  const guard = checkWriteAllowed(settings)
+  const guard = checkWriteAllowed(connection)
   if (!guard.ok) {
     return (
       <section className="card">
@@ -25,7 +23,7 @@ export function EntryView({ settings, session, onSaved }: Props) {
   return (
     <>
       <p className="message notice">
-        <strong>{settings.spreadsheetName}</strong>에 저장합니다({settings.target === 'original' ? '원본 차계부' : '테스트용 복사본'}).
+        <strong>{connection.spreadsheetName}</strong>에 저장합니다({targetOf(connection.spreadsheetName) === 'original' ? '원본 차계부' : '테스트용 복사본'}).
       </p>
       <div className="segmented" role="tablist">
         <button type="button" role="tab" aria-selected={kind === 'fuel'} className={kind === 'fuel' ? 'active' : ''} onClick={() => setKind('fuel')}>
@@ -35,7 +33,7 @@ export function EntryView({ settings, session, onSaved }: Props) {
           정비
         </button>
       </div>
-      {kind === 'fuel' ? <FuelEntryView settings={settings} session={session} onSaved={onSaved} /> : <MaintenanceEntryView settings={settings} session={session} onSaved={onSaved} />}
+      {kind === 'fuel' ? <FuelEntryView connection={connection} onSaved={onSaved} /> : <MaintenanceEntryView connection={connection} onSaved={onSaved} />}
     </>
   )
 }
