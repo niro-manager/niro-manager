@@ -34,6 +34,18 @@
 4. Picker API 키의 웹사이트 제한은 `https://niro-manager.github.io/*`, API 제한은 Google Picker API로 설정합니다. 경로 제한은 출처만 전달하는 Referer와 맞지 않을 수 있습니다.
 5. OAuth 클라이언트 ID, API 키, 프로젝트 **번호**가 같은 프로젝트 소속인지 확인합니다.
 
+### 환경 변수 디버깅 결과 (2026-10-11)
+
+Codex 실행 환경에서 값의 내용을 출력하지 않고 형식을 검사한 결과, 등록된 세 값이 서로 다른 칸에 들어 있었습니다. 아래는 확인 당시의 매핑입니다. 수정할 때 기존 세 값을 먼저 따로 보관한 다음 이동해야 덮어쓰기로 잃어버리지 않습니다.
+
+| 올바른 변수 | 확인 당시 값이 들어 있던 변수 | 값의 형식 |
+|---|---|---|
+| `VITE_GOOGLE_CLIENT_ID` | `VITE_GOOGLE_API_KEY` | `…apps.googleusercontent.com` |
+| `VITE_GOOGLE_API_KEY` | `VITE_GOOGLE_APP_ID` | `AIza…` API 키 |
+| `VITE_GOOGLE_APP_ID` | `VITE_GOOGLE_CLIENT_ID` | 숫자 프로젝트 번호 |
+
+환경 등록 여부와 값의 올바른 매핑은 별개입니다. 실행 환경 설정 화면에서 이 매핑을 수정하고 GitHub Repository variables에도 올바른 이름으로 등록합니다. 배포 검사는 API 키 형식과 값이 다른 변수에 잘못 들어간 경우도 진단하며 값을 출력하지 않습니다. 실제 API 활성화·키 제한·OAuth 원본은 이 형식 검사만으로 확인할 수 없습니다.
+
 ## 사용자: GitHub와 브라우저에서 할 것
 
 1. [Actions Variables](https://github.com/niro-manager/niro-manager/settings/variables/actions)의 **Repository variables**에 `VITE_GOOGLE_CLIENT_ID`, `VITE_GOOGLE_API_KEY`, `VITE_GOOGLE_APP_ID`를 확인·등록합니다. 값은 브라우저 번들에 공개됩니다. client secret·서비스 계정 키·액세스 토큰은 넣지 않습니다. Codex 실행 환경에 등록해도 이곳에는 자동 등록되지 않습니다.

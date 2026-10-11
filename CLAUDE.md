@@ -134,3 +134,10 @@ PWA 작업은 `docs/PWA_GUIDE.md`를 따릅니다. 앱 하나 = 사이트 주소
 - 실제 Google Cloud 설정, 로그인·Picker·읽기 및 배포 앱 복사본 쓰기는 미검증. 원본 쓰기 잠금 유지.
 - 사용자 작업과 검증 순서: `docs/DEPLOYMENT_CHECKLIST.md`.
 - 이번 변경 검증: typecheck·lint·vitest 96개·build 통과. 하위 프로세스 테스트는 샌드박스 EPERM 확인 후 허용된 실행 환경에서 통과. 실제 Pages 배포와 Google 계정 검증은 미실행.
+
+### 환경 변수 디버깅 후속 결과
+
+- Codex 환경의 등록값 형식 검사로 세 값의 뒤바뀜 확인: CLIENT_ID 칸에 프로젝트 번호, API_KEY 칸에 OAuth 클라이언트 ID, APP_ID 칸에 API 키가 들어 있음. 값은 출력하거나 커밋하지 않음.
+- 올바른 매핑을 해당 빌드 프로세스에만 적용해 설정 검사·빌드 통과 확인. 영구 환경 설정 및 GitHub Variables는 변경하지 않음.
+- 검사 스크립트가 API 키 형식도 확인하고, 다른 변수 칸에 있는 올바른 형식의 값을 이름만으로 안내하도록 보완.
+- typecheck·lint·vitest 98개·올바르게 매핑한 값으로 build 통과. 실제 Google 로그인과 Pages 배포는 미검증.
