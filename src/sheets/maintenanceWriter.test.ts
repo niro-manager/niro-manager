@@ -87,8 +87,12 @@ describe('정비 기록 쓰기', () => {
     await expect(commitMaintenanceWrite('T', SETTINGS, dup, sheet.fetch)).rejects.toThrow('시트가 바뀌었습니다')
   })
 
-  it('원본 대상은 거부한다', async () => {
-    await expect(planMaintenanceWrite('T', { ...SETTINGS, target: 'original' }, INPUT, new FakeSheet2().fetch)).rejects.toThrow('원본 쓰기')
+  it('원본 대상에서도 항목을 저장하고 기존 정비 기록을 보존한다', async () => {
+    const sheet = new FakeSheet2()
+    const original = { ...SETTINGS, target: 'original' as const, spreadsheetName: '차계부' }
+    const plan = await planMaintenanceWrite('T', original, INPUT, sheet.fetch)
+    await commitMaintenanceWrite('T', original, plan, sheet.fetch)
+    expect(sheet.grid.map((r) => r[1])).toEqual(['오일', '와이퍼', '오일', '와이퍼', '브레이크 패드', '점검', '타이어'])
   })
 
   it('다시 읽은 값이 다르면 문제를 알린다', () => {

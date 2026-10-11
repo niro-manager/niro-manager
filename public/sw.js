@@ -2,7 +2,7 @@
 // 앱 셸(같은 출처의 정적 파일)만 캐시한다. Google 로그인·Sheets API 등 다른 출처 요청과
 // 차계부 기록은 캐시하지 않는다(AGENTS.md, docs/PWA_GUIDE.md).
 // manifest나 캐시 대상 정적 파일을 바꾸면 CACHE_VERSION을 올린다.
-const CACHE_VERSION = 'v1'
+const CACHE_VERSION = 'v2'
 const CACHE_NAME = `niro-manager-shell-${CACHE_VERSION}`
 const SHELL = [
   './',

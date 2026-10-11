@@ -106,8 +106,9 @@ const twoRecords = () =>
   ])
 
 describe('checkWriteAllowed', () => {
-  it('원본 쓰기는 꺼져 있다', () => {
-    expect(checkWriteAllowed({ ...SETTINGS, target: 'original' }).ok).toBe(false)
+  it('승인된 원본 쓰기를 허용하지만 파일이 없으면 막는다', () => {
+    expect(checkWriteAllowed({ ...SETTINGS, target: 'original' }).ok).toBe(true)
+    expect(checkWriteAllowed({ ...SETTINGS, target: 'original', spreadsheetId: '' }).ok).toBe(false)
   })
   it('복사본 표시인데 이름에 "복사본"이 없으면 막는다', () => {
     expect(checkWriteAllowed({ ...SETTINGS, spreadsheetName: '히로_차계부' }).ok).toBe(false)
@@ -188,9 +189,13 @@ describe('주유 기록 쓰기', () => {
     expect(retry.duplicate?.sheetRow).toBe(4)
   })
 
-  it('원본 대상이면 계획 단계에서 거부한다', async () => {
+  it('원본 대상에서도 저장 후 재조회하고 기존 기록을 보존한다', async () => {
     const sheet = twoRecords()
-    await expect(planFuelWrite('T', { ...SETTINGS, target: 'original' }, INPUT, sheet.fetch)).rejects.toThrow('원본 쓰기')
+    const original = { ...SETTINGS, target: 'original' as const, spreadsheetName: '차계부' }
+    const plan = await planFuelWrite('T', original, INPUT, sheet.fetch)
+    await commitFuelWrite('T', original, plan, sheet.fetch)
+    expect(sheet.values(2, 4).map((r) => r[0])).toEqual([isoToSerial('2026-01-10'), isoToSerial(INPUT.date), isoToSerial('2026-01-20')])
+    expect(sheet.values(2, 4)[2]?.slice(1, 5)).toEqual(['화', 1600, 16, 50000])
   })
 })
 
