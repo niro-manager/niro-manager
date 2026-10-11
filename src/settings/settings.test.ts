@@ -1,16 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import {
-  DEFAULT_SETTINGS,
-  SETTINGS_STORAGE_KEY,
-  createBackup,
-  loadSettings,
-  parseBackup,
-  saveSettings,
-  type Settings,
-} from './settings'
+import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, createBackup, loadSettings, parseBackup, saveSettings, type Settings } from './settings'
 
-const FAKE_ID = 'abcdefghijklmnopqrstuvwxyz_0123456789-AB'
-const SETTINGS: Settings = { ...DEFAULT_SETTINGS, spreadsheetId: FAKE_ID, spreadsheetName: '테스트 차계부' }
+const SETTINGS: Settings = { fuelSheetName: '주유', maintenanceSheetName: '정비' }
 
 function memoryStorage() {
   const map = new Map<string, string>()
@@ -25,17 +16,16 @@ describe('백업과 불러오기', () => {
     const json = JSON.stringify(createBackup(SETTINGS, new Date('2026-10-10T00:00:00Z')))
     expect(parseBackup(json)).toEqual({ ok: true, settings: SETTINGS })
   })
-  it('파일 이름이 없는 이전 백업도 불러온다', () => {
-    const { spreadsheetName: _omit, ...legacy } = SETTINGS
+  it('이전 버전 백업은 탭 이름만 불러온다', () => {
+    const legacy = { spreadsheetId: 'abcdefghijklmnopqrstuvwxyz_0123456789-AB', spreadsheetName: '테스트', target: 'copy', ...SETTINGS }
     const json = JSON.stringify({ format: 'niro-manager-settings', version: 1, exportedAt: '', settings: legacy })
-    expect(parseBackup(json)).toEqual({ ok: true, settings: { ...SETTINGS, spreadsheetName: '' } })
+    expect(parseBackup(json)).toEqual({ ok: true, settings: SETTINGS })
   })
   it('다른 형식이나 깨진 파일은 거부한다', () => {
     expect(parseBackup('not json').ok).toBe(false)
-    expect(parseBackup(JSON.stringify({ format: 'other', version: 1, settings: SETTINGS })).ok).toBe(false)
-    expect(parseBackup(JSON.stringify({ ...createBackup(SETTINGS), version: 2 })).ok).toBe(false)
-    expect(parseBackup(JSON.stringify(createBackup({ ...SETTINGS, target: 'x' as never }))).ok).toBe(false)
-    expect(parseBackup(JSON.stringify(createBackup({ ...SETTINGS, spreadsheetId: 'bad id' }))).ok).toBe(false)
+    expect(parseBackup(JSON.stringify({ format: 'other', version: 2, settings: SETTINGS })).ok).toBe(false)
+    expect(parseBackup(JSON.stringify({ ...createBackup(SETTINGS), version: 3 })).ok).toBe(false)
+    expect(parseBackup(JSON.stringify(createBackup({ ...SETTINGS, fuelSheetName: ' ' }))).ok).toBe(false)
   })
 })
 

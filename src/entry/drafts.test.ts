@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { FuelForm } from '../domain/fuelInput'
 import type { MaintenanceForm } from '../domain/maintenanceInput'
-import { clearAllDrafts, loadDraft, saveDraft } from './drafts'
+import { clearDraft, loadDraft, saveDraft } from './drafts'
 
 function memoryStorage() {
   const map = new Map<string, string>()
@@ -34,12 +34,13 @@ describe('입력 임시 보관', () => {
     expect(loadDraft('fuel', store)).toBeNull()
     expect(loadDraft('maintenance', store)).toBeNull()
   })
-  it('로그아웃 시 모두 지운다', () => {
+  it('지운 종류만 삭제한다', () => {
     const store = memoryStorage()
     saveDraft('fuel', FUEL, store)
     saveDraft('maintenance', MAINT, store)
-    clearAllDrafts(store)
-    expect(store.map.size).toBe(0)
+    clearDraft('fuel', store)
+    expect(loadDraft('fuel', store)).toBeNull()
+    expect(loadDraft('maintenance', store)).toEqual(MAINT)
   })
   it('저장소를 쓸 수 없어도 오류를 내지 않는다', () => {
     const broken = { getItem: () => { throw new Error('denied') }, setItem: () => { throw new Error('denied') }, removeItem: () => { throw new Error('denied') } }

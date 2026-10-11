@@ -2,8 +2,7 @@ import type { CellValue } from '../domain/cells'
 import { FUEL_FIRST_ROW, parseFuelRows } from '../domain/fuel'
 import { expectedCost, findDuplicate, isSortedByDate, isoToSerial, placeFuelRecord, type FuelInput, type FuelPlacement } from '../domain/fuelInput'
 import type { FuelRecord } from '../domain/types'
-import type { Settings } from '../settings/settings'
-import { SheetsError, batchGetValues, batchUpdate, getSheetId, quoteSheetName } from './sheetsClient'
+import { SheetsError, quoteSheetName, type SheetConnection } from './sheetsClient'
 import { checkWriteAllowed } from './writeGuard'
 
 // 주유 기록 쓰기(2단계). 쓰기 대상 제한은 writeGuard.ts.
@@ -21,22 +20,22 @@ export interface FuelWritePlan {
   shiftedRecords: number
 }
 
-function fuelRange(settings: Settings): string {
-  return `${quoteSheetName(settings.fuelSheetName)}!A${FUEL_FIRST_ROW}:I`
+function fuelRange(connection: SheetConnection): string {
+  return `${quoteSheetName(connection.fuelSheetName)}!A${FUEL_FIRST_ROW}:I`
 }
 
-async function readFuel(token: string, settings: Settings, fetchImpl?: typeof fetch) {
-  const [rows = []] = await batchGetValues(token, settings.spreadsheetId, [fuelRange(settings)], fetchImpl)
+async function readFuel(connection: SheetConnection) {
+  const [rows = []] = await connection.backend.batchGetValues([fuelRange(connection)])
   return { rows, records: parseFuelRows(rows).records }
 }
 
 /** 시트를 읽어 새 기록의 위치와 중복 여부를 계산한다. 시트에 쓰지 않는다. */
-export async function planFuelWrite(token: string, settings: Settings, input: FuelInput, fetchImpl?: typeof fetch): Promise<FuelWritePlan> {
-  const guard = checkWriteAllowed(settings)
+export async function planFuelWrite(connection: SheetConnection, input: FuelInput): Promise<FuelWritePlan> {
+  const guard = checkWriteAllowed(connection)
   if (!guard.ok) throw new SheetsError('access', guard.reason)
-  const sheetId = await getSheetId(token, settings.spreadsheetId, settings.fuelSheetName, fetchImpl)
-  if (sheetId === null) throw new SheetsError('api', `"${settings.fuelSheetName}" 탭을 찾을 수 없습니다.`)
-  const { rows, records } = await readFuel(token, settings, fetchImpl)
+  const sheetId = await connection.backend.getSheetId(connection.fuelSheetName)
+  if (sheetId === null) throw new SheetsError('api', `"${connection.fuelSheetName}" 탭을 찾을 수 없습니다.`)
+  const { rows, records } = await readFuel(connection)
   const placement = placeFuelRecord(records, rows, input.date)
   if (placement.mode === 'insert' && !isSortedByDate(records)) {
     throw new SheetsError('api', '시트의 기록이 날짜 순서대로가 아니어서 끼워 넣을 위치를 정할 수 없습니다.')
@@ -136,17 +135,17 @@ export interface FuelWriteResult {
  * 계획대로 쓰고 다시 읽어 확인한다. 저장 직전 시트를 다시 읽어 계획 이후 바뀌었으면 쓰지 않는다.
  * 쓰기 요청 중 네트워크 오류가 나면 저장 여부를 알 수 없으므로 'unknown' 오류를 던진다.
  */
-export async function commitFuelWrite(token: string, settings: Settings, plan: FuelWritePlan, fetchImpl?: typeof fetch): Promise<FuelWriteResult> {
-  const guard = checkWriteAllowed(settings)
+export async function commitFuelWrite(connection: SheetConnection, plan: FuelWritePlan): Promise<FuelWriteResult> {
+  const guard = checkWriteAllowed(connection)
   if (!guard.ok) throw new SheetsError('access', guard.reason)
-  const { rows, records } = await readFuel(token, settings, fetchImpl)
+  const { rows, records } = await readFuel(connection)
   const placement = placeFuelRecord(records, rows, plan.input.date)
   if (rows.length !== plan.rowCount || placement.row !== plan.placement.row || placement.mode !== plan.placement.mode) {
     throw new SheetsError('api', '확인 후 시트가 바뀌었습니다. 기록을 다시 읽고 저장해 주세요.')
   }
 
   try {
-    await batchUpdate(token, settings.spreadsheetId, buildFuelWriteRequests(plan), fetchImpl)
+    await connection.backend.batchUpdate(buildFuelWriteRequests(plan))
   } catch (e) {
     if (e instanceof SheetsError && e.kind === 'network') {
       throw new SheetsError('network', '저장 요청 중 연결이 끊겨 저장되었는지 알 수 없습니다. 기록을 다시 읽어 확인한 뒤, 없을 때만 다시 저장해 주세요.')
@@ -155,7 +154,7 @@ export async function commitFuelWrite(token: string, settings: Settings, plan: F
   }
 
   const r = plan.placement.row
-  const [written = []] = await batchGetValues(token, settings.spreadsheetId, [`${quoteSheetName(settings.fuelSheetName)}!A${r}:I${r + 1}`], fetchImpl)
+  const [written = []] = await connection.backend.batchGetValues([`${quoteSheetName(connection.fuelSheetName)}!A${r}:I${r + 1}`])
   const problems = verifyFuelRows(plan, written)
   if (problems.length > 0) {
     throw new SheetsError('api', `저장 후 확인한 값이 다릅니다(${r}행). 시트를 직접 확인해 주세요: ${problems.join(', ')}`)

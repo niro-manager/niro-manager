@@ -9,8 +9,7 @@ import {
   type MaintenancePlacement,
 } from '../domain/maintenanceInput'
 import type { MaintenanceRecord } from '../domain/types'
-import type { Settings } from '../settings/settings'
-import { SheetsError, batchGetValues, batchUpdate, getSheetId, quoteSheetName } from './sheetsClient'
+import { SheetsError, quoteSheetName, type SheetConnection } from './sheetsClient'
 import { checkWriteAllowed } from './writeGuard'
 
 // 정비 기록 쓰기(2단계). 시트2에는 수식이 없으므로 값만 쓴다.
@@ -28,21 +27,21 @@ export interface MaintenanceWritePlan {
   formatSourceRow: number | null
 }
 
-function range(settings: Settings, from: number, to?: number): string {
-  return `${quoteSheetName(settings.maintenanceSheetName)}!A${from}:E${to ?? ''}`
+function range(connection: SheetConnection, from: number, to?: number): string {
+  return `${quoteSheetName(connection.maintenanceSheetName)}!A${from}:E${to ?? ''}`
 }
 
-async function readMaintenance(token: string, settings: Settings, fetchImpl?: typeof fetch) {
-  const [rows = []] = await batchGetValues(token, settings.spreadsheetId, [range(settings, MAINTENANCE_FIRST_ROW)], fetchImpl)
+async function readMaintenance(connection: SheetConnection) {
+  const [rows = []] = await connection.backend.batchGetValues([range(connection, MAINTENANCE_FIRST_ROW)])
   return { rows, records: parseMaintenanceRows(rows).records }
 }
 
-export async function planMaintenanceWrite(token: string, settings: Settings, input: MaintenanceInput, fetchImpl?: typeof fetch): Promise<MaintenanceWritePlan> {
-  const guard = checkWriteAllowed(settings)
+export async function planMaintenanceWrite(connection: SheetConnection, input: MaintenanceInput): Promise<MaintenanceWritePlan> {
+  const guard = checkWriteAllowed(connection)
   if (!guard.ok) throw new SheetsError('access', guard.reason)
-  const sheetId = await getSheetId(token, settings.spreadsheetId, settings.maintenanceSheetName, fetchImpl)
-  if (sheetId === null) throw new SheetsError('api', `"${settings.maintenanceSheetName}" 탭을 찾을 수 없습니다.`)
-  const { rows, records } = await readMaintenance(token, settings, fetchImpl)
+  const sheetId = await connection.backend.getSheetId(connection.maintenanceSheetName)
+  if (sheetId === null) throw new SheetsError('api', `"${connection.maintenanceSheetName}" 탭을 찾을 수 없습니다.`)
+  const { rows, records } = await readMaintenance(connection)
   const placement = placeMaintenanceRecord(records, rows, input.date)
   if (placement.mode === 'insert' && !isMaintenanceSorted(records)) {
     throw new SheetsError('api', '정비 기록이 날짜 순서대로가 아니어서 끼워 넣을 위치를 정할 수 없습니다.')
@@ -116,16 +115,16 @@ export interface MaintenanceWriteResult {
   mode: MaintenancePlacement['mode']
 }
 
-export async function commitMaintenanceWrite(token: string, settings: Settings, plan: MaintenanceWritePlan, fetchImpl?: typeof fetch): Promise<MaintenanceWriteResult> {
-  const guard = checkWriteAllowed(settings)
+export async function commitMaintenanceWrite(connection: SheetConnection, plan: MaintenanceWritePlan): Promise<MaintenanceWriteResult> {
+  const guard = checkWriteAllowed(connection)
   if (!guard.ok) throw new SheetsError('access', guard.reason)
-  const { rows, records } = await readMaintenance(token, settings, fetchImpl)
+  const { rows, records } = await readMaintenance(connection)
   const placement = placeMaintenanceRecord(records, rows, plan.input.date)
   if (rows.length !== plan.rowCount || placement.row !== plan.placement.row || placement.mode !== plan.placement.mode) {
     throw new SheetsError('api', '확인 후 시트가 바뀌었습니다. 기록을 다시 읽고 저장해 주세요.')
   }
   try {
-    await batchUpdate(token, settings.spreadsheetId, buildMaintenanceWriteRequests(plan), fetchImpl)
+    await connection.backend.batchUpdate(buildMaintenanceWriteRequests(plan))
   } catch (e) {
     if (e instanceof SheetsError && e.kind === 'network') {
       throw new SheetsError('network', '저장 요청 중 연결이 끊겨 저장되었는지 알 수 없습니다. 기록을 다시 읽어 확인한 뒤, 없을 때만 다시 저장해 주세요.')
@@ -134,7 +133,7 @@ export async function commitMaintenanceWrite(token: string, settings: Settings, 
   }
   const first = plan.placement.row
   const last = first + plan.input.items.length - 1
-  const [written = []] = await batchGetValues(token, settings.spreadsheetId, [range(settings, first, last)], fetchImpl)
+  const [written = []] = await connection.backend.batchGetValues([range(connection, first, last)])
   const problems = verifyMaintenanceRows(plan, written)
   if (problems.length > 0) throw new SheetsError('api', `저장 후 확인한 값이 다릅니다. 시트를 직접 확인해 주세요: ${problems.join(', ')}`)
   return { row: first, mode: plan.placement.mode }
