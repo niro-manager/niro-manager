@@ -1,30 +1,19 @@
 # Codex에서 이어서 작업하기
 
-## 저장소 연결 전
+## 현재 저장소
 
-GitHub에 `Hoyasiro/Niro-Manager`가 Private로 생성되었는지 확인합니다. Private 저장소 생성은 확인했습니다. Codex 작업 환경 연결은 아직 확인하지 않았습니다.
+[niro-manager/niro-manager](https://github.com/niro-manager/niro-manager)는 Public 조직 저장소입니다. 이전 주소 `Hoyasiro/Niro-Manager` 대신 새 저장소를 선택합니다. main에는 PR #3까지 반영되어 있습니다(2026-10-11 확인).
 
-준비 문서 PR #1(`chore/project-setup`)은 사용자 승인 후 main에 병합되었습니다. 이후 작업은 main에서 새 작업 브랜치를 만들어 진행합니다.
+## 작업 환경
 
-## Codex 작업 환경
+1. `AGENTS.md`, `CLAUDE.md`, `docs/DEPLOYMENT_CHECKLIST.md`를 읽습니다.
+2. `git remote -v`, `git status -sb`, 원격 main을 확인하고 별도 작업 브랜치를 만듭니다.
+3. Node.js 22 이상에서 `npm ci`를 실행합니다. 명령은 README를 참고합니다.
+4. Google 연결이 필요한 로컬 개발에서만 `.env.local`에 공개 설정값 3개를 넣습니다. Codex 환경 변수는 GitHub Actions 변수와 별개입니다.
+5. 변경 후 `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`를 실행하고 PR로 전달합니다. 사용자 승인 없이 병합하지 않습니다.
 
-Codex의 연결된 GitHub 저장소 목록에서 `Hoyasiro/Niro-Manager`를 선택합니다. 목록에 없다면 GitHub 연결의 저장소 접근 범위에 새 저장소가 포함되었는지 확인합니다.
+GitHub 연결 목록에 저장소가 없으면 조직의 GitHub App 저장소 접근 범위를 확인합니다. API별 권한은 다르므로 저장소 읽기 성공만으로 Actions Variables나 조직 관리 권한까지 있다고 판단하지 않습니다.
 
-Codex Cloud 환경을 사용하는 경우 저장소를 선택한 작업 환경을 연결합니다. 화면과 제공 방식은 계정에서 실제 표시되는 UI를 따릅니다. 이 준비 단계에서는 앱 의존성과 설치 스크립트가 없으므로 임의의 npm 설치/실행 명령을 설정하지 않습니다.
+## 다음 작업
 
-로컬 Codex를 사용한다면 해당 저장소를 clone하고 그 폴더를 작업 대상으로 엽니다. 먼저 현재 브랜치와 문서가 보이는지 확인합니다. 인증 토큰이나 실제 차계부를 저장소에 넣지 않습니다.
-
-공식 환경 안내: https://learn.chatgpt.com/docs/environments/cloud-environment
-
-## 다음 작업 지시 예시
-
-> Niro-Manager의 AGENTS.md와 CLAUDE.md를 읽고 현재 상태를 확인해줘. 별도 브랜치에서 Interactive Coding으로 진행하자. 먼저 Google Drive의 차계부 파일과 분석할 탭을 내가 지정할 수 있도록 질문 하나만 해줘. 지정 후에는 읽기 전용으로 시트 구조와 기존 기록을 분석하고, 구현 전에 중요한 설계 결정을 나와 합의해줘. 원본은 수정하지 말고 쓰기는 테스트용 복사본에서 먼저 검증해줘. PR을 만들어도 사용자 승인 없이 main에 병합하지 마.
-
-## 연결 확인
-
-- 정확한 저장소와 선택한 브랜치인지 확인
-- README.md, AGENTS.md, CLAUDE.md 존재 및 내용 확인
-- 이전 작업 상태와 미결정 사항 확인
-- 첫 후속 작업용 별도 브랜치 생성
-
-현재 앱 실행, 테스트, 빌드 명령은 없습니다. 스택을 합의한 다음 README에 추가합니다.
+대상 파일·탭 분석과 테스트 복사본 쓰기 범위는 이미 합의되어 있습니다. 배포 준비 상태와 Google 설정을 확인하고 실제 로그인 → Picker → 복사본 읽기 → 복사본 쓰기·재조회 순으로 검증합니다. 실제 계정 동의와 파일 선택은 사용자가 직접 수행합니다. 원본 쓰기 잠금은 별도 승인 전까지 유지합니다.

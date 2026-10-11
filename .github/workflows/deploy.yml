@@ -1,7 +1,6 @@
 name: Deploy to GitHub Pages
 
-# main에 병합된 뒤에만 배포한다. 저장소를 niro-manager 조직으로 옮기고
-# Settings → Pages → Source를 "GitHub Actions"로 설정해야 동작한다.
+# main만 배포한다. Settings → Pages → Source는 "GitHub Actions"를 사용한다.
 on:
   push:
     branches: [main]
@@ -18,22 +17,27 @@ concurrency:
 
 jobs:
   build:
-    if: github.repository == 'niro-manager/niro-manager'
+    if: github.repository == 'niro-manager/niro-manager' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    env:
+      # 공개되는 값. 저장소 Actions Variables로 주입한다(docs/GOOGLE_SETUP.md).
+      VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+      VITE_GOOGLE_API_KEY: ${{ vars.VITE_GOOGLE_API_KEY }}
+      VITE_GOOGLE_APP_ID: ${{ vars.VITE_GOOGLE_APP_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+      - name: Validate Google deployment configuration
+        run: node scripts/check-deploy-config.mjs
+      - uses: actions/configure-pages@v5
       - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
       - run: npm test
       - run: npm run build
-        env:
-          # 공개되는 값이지만 커밋하지 않고 저장소 Actions Variables로 주입한다(docs/GOOGLE_SETUP.md).
-          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
-          VITE_GOOGLE_API_KEY: ${{ vars.VITE_GOOGLE_API_KEY }}
-          VITE_GOOGLE_APP_ID: ${{ vars.VITE_GOOGLE_APP_ID }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

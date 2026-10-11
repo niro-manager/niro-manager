@@ -19,7 +19,7 @@
 
 Interactive Coding으로 중요한 설계 결정을 사용자와 합의합니다. 질문은 한 번에 하나씩 합니다. 원본 시트는 임의로 수정하지 않으며, 쓰기 기능은 테스트용 복사본에서 먼저 검증합니다. 별도 브랜치에서 작업하고 PR 생성 후 사용자 검토를 거칩니다. 사용자 승인 없이 main에 병합하지 않습니다. 상세 지침은 `AGENTS.md`를 따릅니다.
 
-## 개발 진행 상황 (2026-10-10 갱신)
+## 개발 진행 상황 (2026-10-11 갱신)
 
 - [x] 프로젝트 개요와 확정 요구사항 문서 초안 작성
 - [x] README.md, AGENTS.md, CLAUDE.md 작성
@@ -47,7 +47,7 @@ Interactive Coding으로 중요한 설계 결정을 사용자와 합의합니다
 - [x] 테스트 복사본의 검증 행 삭제(사용자 요청), 복사본이 원본과 셀 단위로 같음을 확인
 - [x] MVP 작업을 PR #2로 전달, CI 통과 확인 후 사용자 요청으로 main에 병합(merge commit `12852e9`, 2026-10-10)
 
-준비 PR #1은 사용자가 main에 병합했고, MVP PR #2는 사용자 요청으로 Claude가 main에 병합했습니다(2026-10-10). 후속 작업은 별도 작업 브랜치와 새 PR로 진행합니다. 배포 워크플로는 `niro-manager/niro-manager` 저장소에서만 실행되므로, 저장소 이전 전인 현재는 배포되지 않았습니다. 분석 결과와 특이 사항(주유비 직접 입력 행, 같은 날 여러 건, 메모 열 H/I, 정비 탭의 여러 행 기록)은 `docs/SHEET_ANALYSIS.md`를 참고합니다. 검증: typecheck·lint·vitest 93개·build 통과. 차트는 임의 데이터로 390px 폭 라이트·다크 모드 렌더링과 툴팁·표 보기를 확인했습니다. 헤드리스 Chromium에서 서비스 워커·manifest·설정 백업을 확인했고, Google 엔드포인트를 가짜 응답으로 대체해 로그인→파일 선택→두 탭 읽기→목록·경고·401 재로그인 흐름을 확인했습니다. 실제 Google 계정 연결은 사용자의 Google Cloud 설정 후 확인해야 합니다. 원본 시트는 수정하지 않았습니다.
+준비 PR #1은 사용자가 main에 병합했고, MVP PR #2는 사용자 요청으로 Claude가 main에 병합했습니다(2026-10-10). 후속 작업은 별도 작업 브랜치와 새 PR로 진행합니다. 2026-10-11 확인: `niro-manager/niro-manager` 조직 이전·Public 전환 완료, main은 PR #3 병합 커밋 `d4b7f5d`입니다. Pages 소스는 GitHub Actions, 배포 허용 브랜치는 main입니다. 최근 배포 실행은 skipped이고 사이트는 HTTP 404입니다. 분석 결과와 특이 사항(주유비 직접 입력 행, 같은 날 여러 건, 메모 열 H/I, 정비 탭의 여러 행 기록)은 `docs/SHEET_ANALYSIS.md`를 참고합니다. 검증: typecheck·lint·vitest 93개·build 통과. 차트는 임의 데이터로 390px 폭 라이트·다크 모드 렌더링과 툴팁·표 보기를 확인했습니다. 헤드리스 Chromium에서 서비스 워커·manifest·설정 백업을 확인했고, Google 엔드포인트를 가짜 응답으로 대체해 로그인→파일 선택→두 탭 읽기→목록·경고·401 재로그인 흐름을 확인했습니다. 실제 Google 계정 연결은 사용자의 Google Cloud 설정 후 확인해야 합니다. 원본 시트는 수정하지 않았습니다.
 
 ## 다음 단계 TODO
 
@@ -61,7 +61,8 @@ Interactive Coding으로 중요한 설계 결정을 사용자와 합의합니다
 - [x] 프레임워크 합의(Vite + React + TypeScript)
 - [x] 호스팅 합의(GitHub Pages, 전용 조직 `niro-manager`, 저장소 이전 후 Public)
 - [x] 저장소 이름(배포 경로) 확정: `niro-manager`
-- [ ] 사용자가 조직 생성, 저장소 이전, Public 전환, Claude GitHub App 설치
+- [x] 조직 생성, 저장소 이전, Public 전환 확인(2026-10-11)
+- [ ] Claude GitHub App 설치 상태 확인(이번 점검에서는 미확인)
 - [x] 설정·데이터 백업 범위 합의(설정 JSON 백업만, 기록은 스프레드시트가 원본·백업)
 - [x] Google 인증 방식과 최소 권한 범위 합의(GIS 토큰 + `drive.file` + Google Picker)
 - [ ] 사용자가 Google Cloud 프로젝트, OAuth 클라이언트 ID, Picker용 API 키 생성
@@ -124,3 +125,12 @@ PWA 작업은 `docs/PWA_GUIDE.md`를 따릅니다. 앱 하나 = 사이트 주소
 ## 미결정 사항
 
 원본 쓰기 전환 시점은 아직 확정하지 않았습니다. 사용자 합의 후 결정과 이유를 여기에 기록합니다.
+
+## 이전 후 배포 점검 (2026-10-11)
+
+- Pages 경로, manifest, 서비스 워커 범위 일치 확인. 배포 main 제한, Google 설정 사전 검사, configure-pages, 타입 검사·린트 추가 준비.
+- Google API 키 리퍼러 안내를 전용 조직 출처 전체로 수정. README와 Codex 인계 문서의 이전 전 설명 갱신.
+- GitHub Actions 변수 목록은 연결 API 권한 403으로 확인하지 못함. Codex 환경 변수의 readiness는 unknown이며 Google Cloud 설정 완료 증거가 아님.
+- 실제 Google Cloud 설정, 로그인·Picker·읽기 및 배포 앱 복사본 쓰기는 미검증. 원본 쓰기 잠금 유지.
+- 사용자 작업과 검증 순서: `docs/DEPLOYMENT_CHECKLIST.md`.
+- 이번 변경 검증: typecheck·lint·vitest 96개·build 통과. 하위 프로세스 테스트는 샌드박스 EPERM 확인 후 허용된 실행 환경에서 통과. 실제 Pages 배포와 Google 계정 검증은 미실행.
