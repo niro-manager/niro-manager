@@ -51,7 +51,7 @@
 - **배포:** GitHub 저장소 Settings → Secrets and variables → Actions → **Variables** 탭에 위 세 이름으로 추가합니다. `deploy.yml`이 빌드할 때 넣습니다.
 - **개발:** `.env.example`을 `.env.local`로 복사해 값을 채웁니다. `.env.local`은 `.gitignore`에 포함되어 커밋되지 않습니다.
 
-Codex Cloud 실행 환경의 변수는 GitHub Actions에 자동 전달되지 않습니다. Actions의 **Repository variables**에 별도로 등록합니다. 환경(environment) 변수만 등록하면 현재 `build` 작업에서는 읽지 못합니다. 값 변경 후에는 main에서 새 배포를 실행해야 번들에 반영됩니다. 배포 전 검사에서는 누락·형식만 확인하며 실제 프로젝트/API 설정까지 검증하지는 않습니다.
+Codex Cloud 실행 환경의 변수는 GitHub Actions에 자동 전달되지 않습니다. Actions의 **Repository variables**에 별도로 등록합니다. `github-pages` 환경의 Variables도 지원합니다. Secrets에 같은 이름으로 등록한 경우에도 읽으며, 둘 다 있으면 Variables가 우선입니다. 값 변경 후에는 main에서 새 배포를 실행해야 번들에 반영됩니다. 배포 전 검사에서는 누락·형식만 확인하며 실제 프로젝트/API 설정까지 검증하지는 않습니다.
 
 ## 6. 사용
 

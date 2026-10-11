@@ -141,3 +141,8 @@ PWA 작업은 `docs/PWA_GUIDE.md`를 따릅니다. 앱 하나 = 사이트 주소
 - 올바른 매핑을 해당 빌드 프로세스에만 적용해 설정 검사·빌드 통과 확인. 영구 환경 설정 및 GitHub Variables는 변경하지 않음.
 - 검사 스크립트가 API 키 형식도 확인하고, 다른 변수 칸에 있는 올바른 형식의 값을 이름만으로 안내하도록 보완.
 - typecheck·lint·vitest 98개·올바르게 매핑한 값으로 build 통과. 실제 Google 로그인과 Pages 배포는 미검증.
+
+### 배포 재개 (2026-10-11)
+
+- 사용자 배포 요청으로 PR #4 병합(main `e2dfab0`). 첫 실제 배포는 Google 설정 검사에서 실패: 프로젝트 번호는 읽었으나 CLIENT_ID·API_KEY가 비어 있음.
+- 저장소 설정 이름 조회는 403으로 차단됨. 배포 빌드가 github-pages 환경과 Secrets도 지원하도록 후속 수정. Variables가 있으면 우선 사용.
