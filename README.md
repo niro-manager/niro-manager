@@ -4,9 +4,9 @@
 
 ## 현재 상태
 
-MVP 1단계(읽기 전용) 개발 중입니다. Vite + React + TypeScript 앱, PWA manifest·서비스 워커, Google 로그인(`drive.file`)과 Picker 파일 선택, 주유·정비 기록 읽기와 목록, 월별 차트(주유비·주유량·주유 단가·정비비), 설정 백업·불러오기, 주유·정비 입력(테스트용 복사본에만 저장)을 만들었습니다. 원본 쓰기는 사용자 승인 전까지 코드에서 잠겨 있습니다. 실제 Google 계정 연결은 [Google 설정](docs/GOOGLE_SETUP.md) 후 확인합니다. 원본 스프레드시트는 읽기만 했고 수정하지 않았습니다.
+MVP 조회 기능과 테스트 복사본용 입력 기능이 구현되어 있습니다. Vite + React + TypeScript 앱, PWA manifest·서비스 워커, Google 로그인(`drive.file`)과 Picker 파일 선택, 주유·정비 기록 읽기와 목록, 월별 차트(주유비·주유량·주유 단가·정비비), 설정 백업·불러오기, 주유·정비 입력(테스트용 복사본에만 저장)을 만들었습니다. 원본 쓰기는 사용자 승인 전까지 코드에서 잠겨 있습니다. 실제 Google 계정 연결은 [Google 설정](docs/GOOGLE_SETUP.md) 후 확인합니다. 원본 스프레드시트는 읽기만 했고 수정하지 않았습니다.
 
-GitHub 저장소: `Hoyasiro/Niro-Manager` (Private, `niro-manager/niro-manager`로 이전 예정). 준비 문서 PR #1과 MVP PR #2가 사용자 승인 후 main에 병합되었습니다. 저장소 이전과 Google Cloud 설정 후 GitHub Pages로 배포됩니다.
+GitHub 저장소: [niro-manager/niro-manager](https://github.com/niro-manager/niro-manager) (Public, 조직 이전 완료). main은 PR #3까지 반영되어 있습니다. Pages 소스는 GitHub Actions로 설정되어 있으며 첫 배포와 실제 Google 연결 확인이 남아 있습니다. [이전 후 배포 점검](docs/DEPLOYMENT_CHECKLIST.md)을 참고합니다.
 
 ## 확정된 범위
 
@@ -58,13 +58,13 @@ npm run preview    # 빌드 결과 확인 (서비스 워커는 빌드에서만 �
 
 ## 배포
 
-배포 주소는 `https://niro-manager.github.io/niro-manager/`입니다. 저장소를 `niro-manager` 조직으로 옮기고 Settings → Pages → Source를 "GitHub Actions"로 설정해야 배포가 동작합니다.
+배포 주소는 `https://niro-manager.github.io/niro-manager/`입니다. 조직 이전과 Pages의 GitHub Actions 소스 설정은 확인되었습니다. Google Cloud 설정과 저장소 Actions Variables 3개를 확인한 뒤 main에서 배포합니다. 배포 전 설정 검사는 `node scripts/check-deploy-config.mjs`로 실행할 수 있습니다.
 
 ## 개발 시작
 
 `AGENTS.md`와 `CLAUDE.md`를 먼저 읽고 [Codex 시작 안내](docs/CODEX_START.md)를 따릅니다. 중요한 설계 결정은 한 번에 질문 하나씩 사용자와 합의합니다.
 
-첫 개발 작업은 대상 `차계부` 파일과 탭을 사용자에게 확인하고 읽기 전용으로 구조를 분석하는 것입니다. 프레임워크, 호스팅, 인증 방식, 집계 기준은 정했습니다(`CLAUDE.md`의 확정된 결정). 쓰기 범위는 아직 결정하지 않았습니다.
+대상 파일·탭 분석과 프레임워크, 호스팅, 인증 방식, 집계 기준, 테스트 복사본 쓰기 범위는 확정되어 있습니다(`CLAUDE.md`). 현재 후속 작업은 배포와 실제 계정 연결 검증이며 원본 쓰기 전환은 별도 승인이 필요합니다.
 
 모든 변경은 별도 브랜치에서 진행하고 자체 검토·검증 → Push → PR → 사용자 검토 → 승인된 Merge 순서를 따릅니다. PR 생성이나 Push만으로 main에 병합되지 않습니다. 사용자 승인 없이 main 병합과 자동 병합을 수행하지 않습니다.
 
