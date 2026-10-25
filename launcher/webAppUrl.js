@@ -40,3 +40,24 @@ export function clearWebAppUrl(storage) {
 export function isSetupRequested(search) {
   return new URLSearchParams(search).get('setup') === '1'
 }
+
+// 열기 방식: 'embed'(런처 안에 iframe으로 끼워 넣기, 기본) 또는 'direct'(웹 앱 주소로 직접 이동).
+export const OPEN_MODE_KEY = 'niro-manager.launcher.openMode'
+export const OPEN_MODES = ['embed', 'direct']
+
+/** 저장된 열기 방식. 없거나 알 수 없는 값이거나 저장소를 쓸 수 없으면 기본값 'embed'. */
+export function loadOpenMode(storage) {
+  try {
+    const mode = storage.getItem(OPEN_MODE_KEY)
+    return OPEN_MODES.includes(mode) ? mode : 'embed'
+  } catch {
+    return 'embed'
+  }
+}
+
+/** 알려진 값이면 저장하고 그 값을, 아니면 저장하지 않고 null을 돌려준다. 저장 실패는 예외로 알린다. */
+export function saveOpenMode(storage, mode) {
+  if (!OPEN_MODES.includes(mode)) return null
+  storage.setItem(OPEN_MODE_KEY, mode)
+  return mode
+}

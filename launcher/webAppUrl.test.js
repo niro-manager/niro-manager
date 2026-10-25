@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  OPEN_MODE_KEY,
   STORAGE_KEY,
   clearWebAppUrl,
   isSetupRequested,
+  loadOpenMode,
   loadWebAppUrl,
   normalizeWebAppUrl,
+  saveOpenMode,
   saveWebAppUrl,
 } from './webAppUrl.js'
 
@@ -89,5 +92,29 @@ describe('isSetupRequested', () => {
     expect(isSetupRequested('?a=b&setup=1')).toBe(true)
     expect(isSetupRequested('')).toBe(false)
     expect(isSetupRequested('?setup=0')).toBe(false)
+  })
+})
+
+describe('open mode', () => {
+  it('defaults to embed when nothing or an unknown value is stored', () => {
+    expect(loadOpenMode(memoryStorage())).toBe('embed')
+    expect(loadOpenMode(memoryStorage({ [OPEN_MODE_KEY]: 'popup' }))).toBe('embed')
+    expect(
+      loadOpenMode({
+        getItem: () => {
+          throw new Error('blocked')
+        },
+      }),
+    ).toBe('embed')
+  })
+
+  it('saves only known modes', () => {
+    const storage = memoryStorage()
+    expect(saveOpenMode(storage, 'popup')).toBeNull()
+    expect(storage.data.size).toBe(0)
+    expect(saveOpenMode(storage, 'direct')).toBe('direct')
+    expect(loadOpenMode(storage)).toBe('direct')
+    expect(saveOpenMode(storage, 'embed')).toBe('embed')
+    expect(loadOpenMode(storage)).toBe('embed')
   })
 })

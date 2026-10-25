@@ -2,7 +2,7 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Niro Manager</title>
     <meta name="description" content="니로 차계부 Apps Script 웹 앱을 여는 설치용 입구" />
     <meta name="theme-color" content="#1f4e79" />
@@ -35,6 +35,7 @@
         }
       }
       * { box-sizing: border-box; }
+      html, body { height: 100%; }
       body {
         margin: 0;
         background: var(--bg);
@@ -43,11 +44,14 @@
       }
       main { max-width: 32rem; margin: 0 auto; padding: 24px 16px; }
       h1 { font-size: 1.4rem; margin: 0 0 12px; }
-      p, ol { margin: 0 0 12px; }
-      ol { padding-left: 1.4rem; }
+      p, ol, ul, fieldset { margin: 0 0 12px; }
+      ol, ul { padding-left: 1.4rem; }
       .muted { color: var(--muted); font-size: 0.9rem; }
       label { display: block; font-weight: 600; margin-bottom: 6px; }
-      input {
+      fieldset { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+      legend { font-weight: 600; padding: 0 4px; }
+      fieldset label { font-weight: 400; display: flex; gap: 8px; align-items: baseline; margin: 4px 0; }
+      input[type="url"] {
         width: 100%;
         padding: 10px;
         font: inherit;
@@ -72,10 +76,63 @@
       .error { color: var(--error); }
       .ok { color: var(--ok); }
       [hidden] { display: none !important; }
+
+      /* 끼워 넣기: 테두리 없는 전체 화면 iframe. 안전 영역(노치·제스처 바)을 피한다. */
+      #embed {
+        position: fixed;
+        inset: 0;
+        height: 100vh;
+        height: 100dvh;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        background: var(--bg);
+      }
+      #frame { display: block; width: 100%; height: 100%; border: 0; }
+      #loading {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        padding: 16px;
+        text-align: center;
+        background: var(--bg);
+      }
+      /* 평소에는 거의 보이지 않는 작은 손잡이. 누르면 직접 열기·설정 메뉴가 나온다. */
+      #handle {
+        position: absolute;
+        right: calc(env(safe-area-inset-right) + 6px);
+        bottom: calc(env(safe-area-inset-bottom) + 6px);
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        border-radius: 50%;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1;
+        opacity: 0.35;
+      }
+      #menu {
+        position: absolute;
+        right: calc(env(safe-area-inset-right) + 6px);
+        bottom: calc(env(safe-area-inset-bottom) + 40px);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg);
+        box-shadow: 0 2px 8px rgb(0 0 0 / 0.2);
+      }
+      #menu button, #menu a.button { padding: 8px 12px; font-size: 0.9rem; }
     </style>
   </head>
   <body>
-    <main>
+    <main id="page">
       <h1>Niro Manager</h1>
 
       <section id="opening" hidden>
@@ -87,7 +144,7 @@
         <p>인터넷에 연결되면 차계부 웹 앱을 자동으로 엽니다.</p>
         <div class="buttons">
           <button type="button" class="primary" id="retry">다시 시도</button>
-          <a class="button secondary" href="./?setup=1">웹 앱 주소 바꾸기</a>
+          <a class="button secondary" href="./?setup=1">설정</a>
         </div>
       </section>
 
@@ -111,6 +168,11 @@
             placeholder="https://script.google.com/macros/s/…/exec"
             required
           />
+          <fieldset>
+            <legend>열기 방식(이 기기)</legend>
+            <label><input type="radio" name="mode" value="embed" /> <span>끼워 넣기(기본): 주소 표시줄 없이 이 앱 안에 웹 앱을 띄웁니다.</span></label>
+            <label><input type="radio" name="mode" value="direct" /> <span>직접 열기: 웹 앱 주소로 이동합니다. 끼워 넣은 화면이 안 뜨면 고릅니다.</span></label>
+          </fieldset>
           <p id="error" class="error" role="alert" hidden></p>
           <div class="buttons">
             <button type="submit" class="primary">저장하고 열기</button>
@@ -121,30 +183,64 @@
       </section>
 
       <section id="saved" hidden>
-        <p class="ok"><strong>주소를 저장했습니다.</strong></p>
+        <p class="ok"><strong>저장했습니다.</strong></p>
         <p>휴대폰에 앱으로 설치하려면 지금 설치하세요.</p>
         <ul class="muted">
           <li>Android Chrome: 메뉴(⋮) → <strong>앱 설치</strong> 또는 <strong>홈 화면에 추가</strong></li>
           <li>iPhone Safari: 공유 → <strong>홈 화면에 추가</strong></li>
         </ul>
         <div class="buttons">
-          <a class="button primary" id="open" href="./" rel="noreferrer">웹 앱 열기</a>
+          <button type="button" class="primary" id="open">웹 앱 열기</button>
         </div>
-        <p class="muted">주소를 바꾸려면 이 페이지를 <code>?setup=1</code>을 붙여 엽니다.</p>
+        <p class="muted">주소나 열기 방식을 바꾸려면 이 페이지를 <code>?setup=1</code>을 붙여 엽니다.</p>
       </section>
 
       <noscript><p class="error">JavaScript를 켜야 합니다.</p></noscript>
     </main>
 
+    <div id="embed" hidden>
+      <iframe id="frame" title="Niro Manager"></iframe>
+      <div id="loading">
+        <p id="loading-text">차계부 웹 앱을 불러오는 중입니다…</p>
+        <div id="stuck" hidden>
+          <p class="error">끼워 넣은 화면이 뜨지 않습니다.</p>
+          <div class="buttons">
+            <button type="button" class="primary" data-action="direct">직접 열기</button>
+            <button type="button" class="secondary" data-action="always-direct">이 기기에서는 항상 직접 열기</button>
+          </div>
+        </div>
+      </div>
+      <button type="button" id="handle" aria-label="열기 메뉴" aria-expanded="false" aria-controls="menu">↗</button>
+      <div id="menu" hidden>
+        <button type="button" class="secondary" data-action="direct">직접 열기</button>
+        <a class="button secondary" href="./?setup=1">설정</a>
+      </div>
+    </div>
+
     <script type="module">
-      import { clearWebAppUrl, isSetupRequested, loadWebAppUrl, saveWebAppUrl } from './webAppUrl.js'
+      import {
+        clearWebAppUrl,
+        isSetupRequested,
+        loadOpenMode,
+        loadWebAppUrl,
+        saveOpenMode,
+        saveWebAppUrl,
+      } from './webAppUrl.js'
+
+      // 끼워 넣은 웹 앱이 이 시간 안에 load 되지 않으면 직접 열기를 권한다.
+      const EMBED_TIMEOUT_MS = 10000
 
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js').catch(() => {})
       }
 
+      const page = document.getElementById('page')
+      const embed = document.getElementById('embed')
+      const frame = document.getElementById('frame')
       const sections = ['opening', 'offline', 'setup', 'saved'].map((id) => document.getElementById(id))
       function show(id) {
+        page.hidden = false
+        embed.hidden = true
         for (const section of sections) section.hidden = section.id !== id
       }
 
@@ -160,30 +256,84 @@
       const standalone =
         window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
 
+      function openDirect(url) {
+        show('opening')
+        window.location.replace(url)
+      }
+
+      let embedTimer = 0
+      function openEmbedded(url) {
+        page.hidden = true
+        embed.hidden = false
+        document.getElementById('loading').hidden = false
+        document.getElementById('stuck').hidden = true
+        document.getElementById('loading-text').hidden = false
+        clearTimeout(embedTimer)
+        embedTimer = window.setTimeout(() => {
+          document.getElementById('loading-text').hidden = true
+          document.getElementById('stuck').hidden = false
+        }, EMBED_TIMEOUT_MS)
+        frame.src = url
+      }
+
+      frame.addEventListener('load', () => {
+        if (!frame.getAttribute('src')) return
+        clearTimeout(embedTimer)
+        document.getElementById('loading').hidden = true
+      })
+
       function open(url) {
         if (!navigator.onLine) {
           show('offline')
           window.addEventListener('online', () => open(url), { once: true })
           return
         }
-        show('opening')
-        window.location.replace(url)
+        if (storage && loadOpenMode(storage) === 'direct') openDirect(url)
+        else openEmbedded(url)
       }
 
+      function savedUrl() {
+        return storage ? loadWebAppUrl(storage) : null
+      }
+
+      const handle = document.getElementById('handle')
+      const menu = document.getElementById('menu')
+      handle.addEventListener('click', () => {
+        menu.hidden = !menu.hidden
+        handle.setAttribute('aria-expanded', String(!menu.hidden))
+      })
+
+      embed.addEventListener('click', (event) => {
+        const action = event.target.closest('[data-action]')?.dataset.action
+        const url = savedUrl()
+        if (!action || !url) return
+        if (action === 'always-direct' && storage) {
+          try {
+            saveOpenMode(storage, 'direct')
+          } catch {
+            // 저장하지 못해도 이번에는 직접 연다.
+          }
+        }
+        openDirect(url)
+      })
+
       document.getElementById('retry').addEventListener('click', () => {
-        const url = storage && loadWebAppUrl(storage)
+        const url = savedUrl()
         if (url) open(url)
         else showSetup()
       })
 
+      const form = document.getElementById('form')
       const input = document.getElementById('url')
       const error = document.getElementById('error')
       const status = document.getElementById('status')
       const clear = document.getElementById('clear')
 
       function showSetup() {
-        const saved = storage && loadWebAppUrl(storage)
+        const saved = savedUrl()
         input.value = saved ?? ''
+        const mode = storage ? loadOpenMode(storage) : 'embed'
+        for (const radio of form.elements.mode) radio.checked = radio.value === mode
         clear.hidden = !saved
         show('setup')
       }
@@ -194,7 +344,7 @@
         status.hidden = true
       }
 
-      document.getElementById('form').addEventListener('submit', (event) => {
+      form.addEventListener('submit', (event) => {
         event.preventDefault()
         if (!storage) {
           showError('이 브라우저에서는 주소를 저장할 수 없습니다(사이트 데이터 저장이 막혀 있음).')
@@ -203,8 +353,9 @@
         let url
         try {
           url = saveWebAppUrl(storage, input.value)
+          if (url) saveOpenMode(storage, form.elements.mode.value || 'embed')
         } catch {
-          showError('주소를 저장하지 못했습니다. 브라우저의 사이트 데이터 저장 설정을 확인하세요.')
+          showError('저장하지 못했습니다. 브라우저의 사이트 데이터 저장 설정을 확인하세요.')
           return
         }
         if (!url) {
@@ -212,19 +363,14 @@
           return
         }
         error.hidden = true
-        if (standalone) {
-          open(url)
-        } else {
-          document.getElementById('open').href = url
-          show('saved')
-        }
+        if (standalone) open(url)
+        else show('saved')
       })
 
-      document.getElementById('open').addEventListener('click', (event) => {
-        const url = storage && loadWebAppUrl(storage)
-        if (!url) return
-        event.preventDefault()
-        open(url)
+      document.getElementById('open').addEventListener('click', () => {
+        const url = savedUrl()
+        if (url) open(url)
+        else showSetup()
       })
 
       clear.addEventListener('click', () => {
@@ -236,8 +382,8 @@
         status.hidden = false
       })
 
-      const savedUrl = storage && loadWebAppUrl(storage)
-      if (savedUrl && !isSetupRequested(window.location.search)) open(savedUrl)
+      const initialUrl = savedUrl()
+      if (initialUrl && !isSetupRequested(window.location.search)) open(initialUrl)
       else showSetup()
     </script>
   </body>
