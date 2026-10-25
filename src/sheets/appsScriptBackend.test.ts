@@ -23,6 +23,20 @@ describe('createAppsScriptBackend', () => {
   })
 })
 
+describe('ocrReceipt', () => {
+  it('사진을 base64와 형식으로 넘기고 글자를 돌려준다', async () => {
+    const call = vi.fn(async () => ({ text: '단가 1,689', tempFileLeft: false }))
+    const backend = createAppsScriptBackend(call)
+    expect(await backend.ocrReceipt({ base64: 'AAAA', mimeType: 'image/jpeg' })).toEqual({ text: '단가 1,689', tempFileLeft: false })
+    expect(call).toHaveBeenCalledWith('ocrReceipt', 'AAAA', 'image/jpeg')
+  })
+
+  it('비어 있는 응답은 빈 글자', async () => {
+    const backend = createAppsScriptBackend(async () => null)
+    expect(await backend.ocrReceipt({ base64: 'AAAA', mimeType: 'image/png' })).toEqual({ text: '', tempFileLeft: false })
+  })
+})
+
 describe('toSheetsError', () => {
   it.each([
     ['NetworkError: Connection failure due to HTTP 0', 'network'],

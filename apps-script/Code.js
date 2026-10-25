@@ -63,3 +63,55 @@ function batchUpdate(requests) {
   }
   return null
 }
+
+// 영수증 사진 글자 인식(OCR, 2026-10-25 합의). 사진을 잠깐 Google 문서로 변환해 글자만 꺼내고 그 문서는 바로 영구 삭제한다.
+// 사진과 글자는 시트·로그에 남기지 않는다. 시트에는 쓰지 않는다.
+const OCR_MAX_BASE64_LENGTH_ = 8 * 1024 * 1024
+const OCR_MIME_TYPES_ = ['image/jpeg', 'image/png']
+const OCR_TEMP_NAME_ = 'Niro Manager 영수증 인식(임시)'
+
+/**
+ * base64 사진의 글자를 읽는다(한국어). 결과 { text, tempFileLeft }.
+ * tempFileLeft가 true면 임시 문서를 지우지 못한 것이므로 앱이 사용자에게 Drive에서 지우도록 안내한다.
+ */
+function ocrReceipt(base64, mimeType) {
+  if (typeof base64 !== 'string' || base64.length === 0) throw new Error('[api] 사진이 비어 있습니다.')
+  if (base64.length > OCR_MAX_BASE64_LENGTH_) throw new Error('[api] 사진이 너무 큽니다.')
+  if (OCR_MIME_TYPES_.indexOf(mimeType) < 0) throw new Error('[api] JPEG·PNG 사진만 읽을 수 있습니다.')
+  const blob = Utilities.newBlob(Utilities.base64Decode(base64), mimeType, 'receipt')
+  let fileId = null
+  let text = null
+  let failure = null
+  try {
+    // Drive API v3: 사진을 Google 문서 형식으로 올리면 OCR로 변환된다.
+    const file = Drive.Files.create({ name: OCR_TEMP_NAME_, mimeType: 'application/vnd.google-apps.document' }, blob, {
+      ocrLanguage: 'ko',
+      fields: 'id',
+    })
+    fileId = file.id
+    const response = UrlFetchApp.fetch(
+      'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(fileId) + '/export?mimeType=text%2Fplain',
+      { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true },
+    )
+    if (response.getResponseCode() !== 200) throw new Error('[api] 영수증 글자를 꺼내지 못했습니다. (HTTP ' + response.getResponseCode() + ')')
+    text = response.getContentText('UTF-8')
+  } catch (e) {
+    failure = e
+  } finally {
+    // 휴지통을 거치지 않고 영구 삭제한다(files.delete). 실패해도 결과와 함께 알린다.
+    if (fileId) {
+      try {
+        Drive.Files.remove(fileId)
+        fileId = null
+      } catch (e) {
+        // 지우지 못한 임시 문서는 tempFileLeft로 알린다.
+      }
+    }
+  }
+  if (failure) {
+    const message = String((failure && failure.message) || failure)
+    const tagged = /^\[\w+\] /.test(message) ? message : '[api] 영수증 글자 인식이 실패했습니다. (' + message + ')'
+    throw new Error(fileId ? tagged + ' Drive에 남은 "' + OCR_TEMP_NAME_ + '" 문서를 지워 주세요.' : tagged)
+  }
+  return { text: text, tempFileLeft: fileId !== null }
+}

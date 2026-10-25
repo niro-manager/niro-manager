@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react'
 
-export function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
+export function Field({ label, error, fromReceipt, children }: { label: string; error?: string; fromReceipt?: boolean; children: ReactNode }) {
   return (
     <label>
-      {label}
+      <span>
+        {label}
+        {fromReceipt && <span className="badge badge-receipt">영수증에서 읽음</span>}
+      </span>
       {children}
       {error && <span className="field-error">{error}</span>}
     </label>
