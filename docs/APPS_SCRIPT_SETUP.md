@@ -28,7 +28,26 @@ Niro Manager는 차계부 스프레드시트에 연결된 Apps Script 웹 앱으
 
 ## 4. 원본에 설치
 
-원본 `히로_차계부`에서 2~3단계를 똑같이 진행합니다. 상단 배지가 "원본 · 저장 가능"으로 보이면 원본에 연결된 것입니다. 휴대폰에서는 웹 앱 URL을 브라우저로 열고 **홈 화면에 추가**로 바로가기를 만듭니다.
+원본 `히로_차계부`에서 2~3단계를 똑같이 진행합니다. 상단 배지가 "원본 · 저장 가능"으로 보이면 원본에 연결된 것입니다. 휴대폰에는 아래 5절의 런처로 앱처럼 설치합니다.
+
+## 5. 휴대폰에 앱으로 설치
+
+Apps Script 주소(`script.google.com`)에는 앱 설치 정보(manifest)를 붙일 수 없어 Android Chrome에서 "이 앱을 설치할 수 없습니다"가 뜹니다. 그래서 GitHub Pages에 **설치용 입구 페이지(런처)** `https://niro-manager.github.io/niro-manager/`를 두었습니다. 런처는 이 기기에 저장한 웹 앱 주소로 바로 이동만 하며, 기록을 읽거나 저장하지 않습니다.
+
+1. Apps Script 편집기에서 **배포 → 배포 관리**를 열고 웹 앱 URL(`https://script.google.com/macros/s/…/exec`)을 복사합니다. 끝이 `/dev`인 테스트 주소가 아니라 `/exec` 주소여야 합니다.
+2. 휴대폰 브라우저로 런처 주소를 열고 웹 앱 URL을 붙여 넣은 뒤 **저장하고 열기**를 누릅니다. 주소는 이 기기의 브라우저에만 저장되고 저장소에는 올라가지 않습니다.
+3. "주소를 저장했습니다" 화면에서 설치합니다.
+   - Android Chrome: 메뉴(⋮) → **앱 설치**(또는 **홈 화면에 추가 → 설치**)
+   - iPhone Safari: 공유 → **홈 화면에 추가**
+4. 홈 화면(Android는 앱 서랍에도)의 **니로 차계부** 아이콘으로 엽니다. 런처가 웹 앱으로 바로 넘겨줍니다.
+
+참고:
+
+- 웹 앱은 다른 주소(`script.google.com`)라서 앱 화면 위에 얇은 주소 표시줄이 보일 수 있습니다(의도된 동작).
+- iPhone은 홈 화면 앱이 Safari와 저장소를 따로 써서, 설치한 앱을 처음 열 때 주소를 한 번 더 붙여 넣어야 할 수 있습니다.
+- 주소를 바꾸거나 지우려면 브라우저로 `https://niro-manager.github.io/niro-manager/?setup=1`을 엽니다. 웹 앱을 "새 배포"로 다시 만들어 URL이 바뀐 경우에만 필요합니다(업데이트 절차대로 새 버전을 올리면 URL은 그대로입니다).
+- 인터넷이 끊겨 있으면 런처가 "오프라인입니다"를 보여주고, 연결되면 자동으로 웹 앱을 엽니다.
+- 예전에 GitHub Pages 앱(PWA)을 설치했다면 같은 앱으로 인식되어 그 아이콘이 런처로 바뀝니다.
 
 ## 업데이트
 
@@ -45,4 +64,4 @@ Niro Manager는 차계부 스프레드시트에 연결된 Apps Script 웹 앱으
 
 ## 이전 방식 정리(선택)
 
-GitHub Pages 배포와 Google Cloud 설정은 더 이상 쓰지 않습니다. 원하면 저장소 **Settings → Pages**에서 사이트를 끄고, Google Cloud 콘솔에서 이 앱용 OAuth 클라이언트와 API 키를 삭제해도 됩니다. GitHub Variables의 `VITE_GOOGLE_*` 값도 지워도 됩니다.
+Google Cloud 설정은 더 이상 쓰지 않습니다. 원하면 Google Cloud 콘솔에서 이 앱용 OAuth 클라이언트와 API 키를 삭제하고, GitHub Variables의 `VITE_GOOGLE_*` 값도 지워도 됩니다. GitHub Pages는 런처 배포에 다시 쓰므로 끄지 않습니다. 저장소 **Settings → Pages → Source**가 **GitHub Actions**인지 확인합니다.

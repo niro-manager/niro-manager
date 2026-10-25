@@ -14,3 +14,4 @@ service-account*.json
 private-data/
 sheet-exports/
 *.local
+_site/
