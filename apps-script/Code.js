@@ -8,6 +8,9 @@ function doGet() {
   return HtmlService.createHtmlOutputFromFile('index')
     .setTitle('Niro Manager')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    // GitHub Pages 런처가 iframe으로 끼워 넣을 수 있게 한다. ALLOWALL은 출처를 고를 수 없어 다른 사이트도 끼워 넣을 수 있다
+    // (웹 앱은 소유자만 열 수 있음). 위험과 근거는 CLAUDE.md "런처 끼워 넣기" 참고.
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
 }
 
 function spreadsheet_() {

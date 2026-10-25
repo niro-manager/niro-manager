@@ -4,7 +4,7 @@
 
 ## 현재 상태
 
-초기 개인용 운영 단계입니다. 기록 조회·월별 차트·주유 및 정비 입력·설정 백업을 제공합니다. 2026-10-11 사용자 결정으로 GitHub Pages + Google Cloud(OAuth·Picker) 방식에서 **차계부 스프레드시트에 연결된 Apps Script 웹 앱**으로 전환했습니다. 웹 앱은 소유자 계정으로 실행되고 소유자만 열 수 있어 앱에서 따로 로그인하지 않습니다. 2026-10-25 사용자 결정으로 휴대폰 설치용 **런처**(GitHub Pages `https://niro-manager.github.io/niro-manager/`)를 두어, 홈 화면 아이콘으로 열면 기기에 저장한 웹 앱 주소로 바로 이동합니다. 설치와 배포는 [Apps Script 설치·배포 안내](docs/APPS_SCRIPT_SETUP.md)를 따릅니다.
+초기 개인용 운영 단계입니다. 기록 조회·월별 차트·주유 및 정비 입력·설정 백업을 제공합니다. 2026-10-11 사용자 결정으로 GitHub Pages + Google Cloud(OAuth·Picker) 방식에서 **차계부 스프레드시트에 연결된 Apps Script 웹 앱**으로 전환했습니다. 웹 앱은 소유자 계정으로 실행되고 소유자만 열 수 있어 앱에서 따로 로그인하지 않습니다. 2026-10-25 사용자 결정으로 휴대폰 설치용 **런처**(GitHub Pages `https://niro-manager.github.io/niro-manager/`)를 두어, 홈 화면 아이콘으로 열면 기기에 저장한 웹 앱을 런처 화면 안에 끼워 넣어(iframe) 엽니다. 기기별로 직접 열기도 고를 수 있습니다. 설치와 배포는 [Apps Script 설치·배포 안내](docs/APPS_SCRIPT_SETUP.md)를 따릅니다.
 
 ## 확정된 범위
 
@@ -12,7 +12,7 @@
 - 기존 스프레드시트의 기록, 탭, 열, 수식 및 서식을 보존합니다.
 - 주유 및 정비 내역 입력·조회와 Google Sheets 데이터 동기화를 지원합니다.
 - 월별 주유비, 주유량, 정비비, 주유 단가를 시각화합니다.
-- Android, iOS, Windows, macOS의 브라우저에서 사용합니다(Apps Script 웹 앱). 휴대폰은 GitHub Pages 런처를 앱으로 설치해 웹 앱을 엽니다(웹 앱 화면 위에 얇은 주소 표시줄이 남을 수 있음).
+- Android, iOS, Windows, macOS의 브라우저에서 사용합니다(Apps Script 웹 앱). 휴대폰은 GitHub Pages 런처를 앱으로 설치해 웹 앱을 엽니다(기본은 끼워 넣기로 주소 표시줄 없이 표시, iPhone은 직접 열기 권장).
 - 초기에는 별도 데이터베이스 서버를 사용하지 않습니다.
 
 ## 문서 구조
@@ -41,7 +41,7 @@ npm run build      # dist/에 Apps Script용 index.html·Code.js·appsscript.jso
 
 ## 코드 구조
 
-- `apps-script/Code.js`, `apps-script/appsscript.json`: Apps Script 서버(웹 앱 제공, 시트 읽기, 허용된 batchUpdate 요청만 적용, Sheets 고급 서비스)
+- `apps-script/Code.js`, `apps-script/appsscript.json`: Apps Script 서버(웹 앱 제공·런처 iframe 허용, 시트 읽기, 허용된 batchUpdate 요청만 적용, Sheets 고급 서비스)
 - `vite.config.ts`: JS·CSS를 `index.html` 한 파일로 묶고 서버 파일을 `dist/`에 복사
 - `src/domain/`: 시트 값 해석(날짜 직렬값, 빈 칸과 0 구분), 주유(`시트1`)·정비(`시트2`) 기록 매핑
 - `src/sheets/`: 시트 어댑터(`sheetsClient.ts` 연결 형식, `appsScriptBackend.ts` 서버 함수 호출과 오류 구분), 읽기
@@ -51,7 +51,7 @@ npm run build      # dist/에 Apps Script용 index.html·Code.js·appsscript.jso
 - `src/entry/drafts.ts`, `src/session/useOnline.ts`: 저장하지 않은 입력 임시 보관, 오프라인 안내와 연결 복구 시 재읽기(기록 자체는 기기에 저장하지 않음)
 - `src/domain/monthly.ts`, `src/charts/`: 월별 집계(주유 단가는 리터 가중 평균)와 SVG 차트
 - `src/settings/`: 탭 이름 설정, localStorage 저장, JSON 백업·불러오기
-- `launcher/`: GitHub Pages 런처(정적 파일, 빌드 없음). `index.html`(저장된 웹 앱 주소로 `location.replace`, 없으면 입력 화면, `?setup=1`로 변경·삭제), `webAppUrl.js`(주소 형식 검사·저장), `manifest.webmanifest`(`id` `/niro-manager/niro-manager`), `sw.js`(같은 출처 런처 파일만 캐시), 아이콘
+- `launcher/`: GitHub Pages 런처(정적 파일, 빌드 없음). `index.html`(저장된 웹 앱을 전체 화면 iframe으로 끼워 넣거나 직접 열기, 없으면 입력 화면, `?setup=1`로 주소·열기 방식 변경), `webAppUrl.js`(주소 형식 검사, 주소·열기 방식 저장), `manifest.webmanifest`(`id` `/niro-manager/niro-manager`), `sw.js`(같은 출처 런처 파일만 캐시), 아이콘
 - `.github/workflows/ci.yml`: PR·main에서 타입 검사, 린트, 테스트, 런처 검사, 빌드 후 `apps-script` 아티팩트 업로드
 - `.github/workflows/pages.yml`: main push 시 `launcher/`만 GitHub Pages로 배포
 

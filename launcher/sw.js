@@ -1,7 +1,7 @@
 // Niro Manager 런처 서비스 워커.
 // 같은 출처의 런처 파일만 캐시한다. Apps Script 웹 앱(script.google.com) 등 다른 출처 요청은 건드리지 않는다.
 // manifest나 아래 캐시 대상 파일을 바꾸면 CACHE_VERSION을 올린다.
-const CACHE_VERSION = 'v3'
+const CACHE_VERSION = 'v4'
 const CACHE_PREFIX = 'niro-manager-shell-'
 const CACHE_NAME = `${CACHE_PREFIX}${CACHE_VERSION}`
 const SHELL = [
