@@ -1,8 +1,8 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { expectedCost, validateFuelForm, type FuelForm } from '../domain/fuelInput'
-import { RECEIPT_FIELD_LABELS, fillFuelForm, parseFuelReceipt, type ReceiptField } from '../domain/fuelReceipt'
+import { RECEIPT_FIELD_LABELS, fillFuelForm, parseFuelReceipt, sanitizeFuelReceipt, type ReceiptField } from '../domain/fuelReceipt'
 import { today, formatDate, formatKm, formatLiters, formatWon } from '../format'
-import type { SheetConnection } from '../sheets/sheetsClient'
+import type { ReceiptOcr, SheetConnection } from '../sheets/sheetsClient'
 import { commitFuelWrite, planFuelWrite, type FuelWritePlan, type FuelWriteResult } from '../sheets/fuelWriter'
 import { clearDraft, loadDraft, saveDraft } from './drafts'
 import { OFFLINE_MESSAGE, isOffline } from './offline'
@@ -21,7 +21,7 @@ type Stage = { kind: 'form' } | { kind: 'confirm'; plan: FuelWritePlan } | { kin
 type ReceiptScan =
   | { kind: 'idle' }
   | { kind: 'reading' }
-  | { kind: 'read'; text: string; missing: ReceiptField[]; tempFileLeft: boolean }
+  | { kind: 'read'; engine: ReceiptOcr['engine']; fallback: ReceiptOcr['fallback']; text: string; missing: ReceiptField[]; tempFileLeft: boolean }
   | { kind: 'error'; message: string }
 
 const emptyForm = (): FuelForm => ({ date: today(), unitPrice: '', liters: '', manualCostEnabled: false, manualCost: '', odometerKm: '', memo: '' })
@@ -66,13 +66,14 @@ export function FuelEntryView({ connection, onSaved }: Props) {
     try {
       const image = await prepareReceiptImage(file)
       const ocr = await connection.backend.ocrReceipt(image)
-      const receipt = parseFuelReceipt(ocr.text)
+      // Gemini가 읽은 값도 글자 해석과 같은 범위 검사를 통과한 값만 쓴다.
+      const receipt = ocr.engine === 'gemini' && ocr.fields ? sanitizeFuelReceipt(ocr.fields) : parseFuelReceipt(ocr.text)
       const filled = fillFuelForm(form, receipt)
       // 글자를 읽는 동안 고친 누적 km·비고가 있으면 그 값을 살린다.
       setForm((current) => fillFuelForm(current, receipt).form)
       setFromReceipt(new Set(filled.filled))
       setErrors({})
-      setScan({ kind: 'read', text: ocr.text, missing: filled.missing, tempFileLeft: ocr.tempFileLeft })
+      setScan({ kind: 'read', engine: ocr.engine, fallback: ocr.fallback, text: ocr.text, missing: filled.missing, tempFileLeft: ocr.tempFileLeft })
     } catch (e) {
       setScan({ kind: 'error', message: e instanceof Error ? e.message : '영수증을 읽지 못했습니다.' })
     }
@@ -251,16 +252,22 @@ function ReceiptPicker({ scan, onChange }: { scan: ReceiptScan; onChange: (event
       {scan.kind === 'read' && (
         <div role="status" className="message notice">
           <p>
+            <span className="badge badge-engine">{scan.engine === 'gemini' ? 'Gemini로 읽음' : 'Drive 인식으로 읽음'}</span>{' '}
             영수증에서 읽은 값을 채웠습니다. 인식이 틀릴 수 있으니 확인한 뒤 저장해 주세요.
             {scan.missing.length > 0 && ` 찾지 못함: ${scan.missing.map((f) => RECEIPT_FIELD_LABELS[f]).join(', ')}.`}
           </p>
+          {scan.fallback && scan.fallback !== 'no-key' && (
+            <p className="computed">{scan.fallback === 'quota' ? 'Gemini 무료 사용 한도를 넘어 Drive 인식으로 읽었습니다.' : 'Gemini가 응답하지 않아 Drive 인식으로 읽었습니다.'}</p>
+          )}
           {scan.tempFileLeft && (
             <p className="field-error">Drive의 임시 문서 "Niro Manager 영수증 인식(임시)"를 지우지 못했습니다. Drive에서 직접 지워 주세요.</p>
           )}
-          <details>
-            <summary>인식한 글자 보기</summary>
-            <pre className="receipt-text">{scan.text.trim() === '' ? '(읽은 글자 없음)' : scan.text}</pre>
-          </details>
+          {scan.engine === 'drive' && (
+            <details>
+              <summary>인식한 글자 보기</summary>
+              <pre className="receipt-text">{scan.text.trim() === '' ? '(읽은 글자 없음)' : scan.text}</pre>
+            </details>
+          )}
         </div>
       )}
     </div>

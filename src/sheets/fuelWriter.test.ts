@@ -80,7 +80,7 @@ class FakeSheet {
   backend: SheetsBackend = {
     getInfo: async () => ({ name: COPY_NAME }),
     getSheetId: async (name) => (name === '시트1' ? 0 : null),
-    ocrReceipt: async () => ({ text: '', tempFileLeft: false }),
+    ocrReceipt: async () => ({ engine: 'drive', fields: null, text: '', fallback: null, tempFileLeft: false }),
     batchUpdate: async (requests) => {
       this.apply(requests)
       if (this.failNextUpdate) {

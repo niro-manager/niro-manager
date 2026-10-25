@@ -64,20 +64,124 @@ function batchUpdate(requests) {
   return null
 }
 
-// 영수증 사진 글자 인식(OCR, 2026-10-25 합의). 사진을 잠깐 Google 문서로 변환해 글자만 꺼내고 그 문서는 바로 영구 삭제한다.
-// 사진과 글자는 시트·로그에 남기지 않는다. 시트에는 쓰지 않는다.
+// 영수증 사진 인식(2026-10-25 합의, A+C). Gemini API(무료 등급)로 값을 바로 읽고, 키가 없거나 실패하면 Drive 글자 인식으로 바꾼다.
+// 사진·글자·인식 결과·API 키는 시트·로그에 남기지 않는다. 시트에는 쓰지 않는다.
 const OCR_MAX_BASE64_LENGTH_ = 8 * 1024 * 1024
 const OCR_MIME_TYPES_ = ['image/jpeg', 'image/png']
 const OCR_TEMP_NAME_ = 'Niro Manager 영수증 인식(임시)'
+// 스크립트 속성 GEMINI_MODEL로 바꿀 수 있다. 2026-10 기준 안정판 Flash 모델.
+const GEMINI_DEFAULT_MODEL_ = 'gemini-3.8-flash'
+const GEMINI_PROMPT_ =
+  '이 사진은 한국 주유소 영수증이다. 다음 값을 읽어 JSON으로만 답한다. ' +
+  'date: 거래 날짜(yyyy-mm-dd). unitPrice: 리터당 단가(원). liters: 주유량(리터, 소수 3자리까지). ' +
+  'paid: 실제로 결제(승인)된 금액(원). 공급가·부가세·할인·포인트·적립 금액은 paid가 아니다. ' +
+  '보이지 않거나 확실하지 않은 값은 null로 둔다. 카드번호 등 다른 내용은 답하지 않는다.'
 
 /**
- * base64 사진의 글자를 읽는다(한국어). 결과 { text, tempFileLeft }.
- * tempFileLeft가 true면 임시 문서를 지우지 못한 것이므로 앱이 사용자에게 Drive에서 지우도록 안내한다.
+ * 영수증 사진을 읽는다. 결과:
+ * - Gemini: { engine: 'gemini', fields: { date, unitPrice, liters, paid }, text: '', tempFileLeft: false }
+ * - Drive:  { engine: 'drive', text, tempFileLeft, gemini: 'no-key' | 'quota' | 'failed' } (gemini는 Drive로 바꾼 이유)
  */
 function ocrReceipt(base64, mimeType) {
   if (typeof base64 !== 'string' || base64.length === 0) throw new Error('[api] 사진이 비어 있습니다.')
   if (base64.length > OCR_MAX_BASE64_LENGTH_) throw new Error('[api] 사진이 너무 큽니다.')
   if (OCR_MIME_TYPES_.indexOf(mimeType) < 0) throw new Error('[api] JPEG·PNG 사진만 읽을 수 있습니다.')
+  const properties = PropertiesService.getScriptProperties()
+  const apiKey = properties.getProperty('GEMINI_API_KEY')
+  let reason = 'no-key'
+  if (apiKey) {
+    reason = 'failed'
+    try {
+      const model = properties.getProperty('GEMINI_MODEL') || GEMINI_DEFAULT_MODEL_
+      const response = UrlFetchApp.fetch(geminiUrl_(model), {
+        method: 'post',
+        contentType: 'application/json',
+        headers: { 'x-goog-api-key': apiKey },
+        payload: JSON.stringify(geminiRequest_(base64, mimeType, model)),
+        muteHttpExceptions: true,
+      })
+      const code = response.getResponseCode()
+      if (code === 200) {
+        const fields = parseGeminiResponse_(response.getContentText('UTF-8'))
+        if (fields) return { engine: 'gemini', fields: fields, text: '', tempFileLeft: false }
+      } else if (code === 429) {
+        reason = 'quota'
+      }
+      // 오류 본문은 버린다(키나 사진 내용이 섞일 수 있는 곳에 남기지 않는다).
+    } catch (e) {
+      // 연결 실패·시간 초과 등도 Drive로 바꾼다. 오류 내용은 남기지 않는다.
+    }
+  }
+  const drive = ocrWithDrive_(base64, mimeType)
+  return { engine: 'drive', text: drive.text, tempFileLeft: drive.tempFileLeft, gemini: reason }
+}
+
+function geminiUrl_(model) {
+  if (!/^[A-Za-z0-9.-]+$/.test(model)) throw new Error('[api] GEMINI_MODEL 값이 올바르지 않습니다.')
+  return 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent'
+}
+
+/** Gemini generateContent 요청 본문. 구조화된 JSON 출력(responseSchema)으로 네 값만 받는다 */
+function geminiRequest_(base64, mimeType, model) {
+  const nullableNumber = { type: 'NUMBER', nullable: true }
+  const generationConfig = {
+    responseMimeType: 'application/json',
+    responseSchema: {
+      type: 'OBJECT',
+      properties: {
+        date: { type: 'STRING', nullable: true, description: 'yyyy-mm-dd' },
+        unitPrice: nullableNumber,
+        liters: nullableNumber,
+        paid: nullableNumber,
+      },
+      required: ['date', 'unitPrice', 'liters', 'paid'],
+    },
+  }
+  // Gemini 3 계열은 temperature를 기본값으로 두라는 Google 안내가 있어(낮추면 반복 등) 그 이전 모델에만 0을 쓴다.
+  if (!/^gemini-[3-9]/.test(model)) generationConfig.temperature = 0
+  return {
+    contents: [{ role: 'user', parts: [{ text: GEMINI_PROMPT_ }, { inlineData: { mimeType: mimeType, data: base64 } }] }],
+    generationConfig: generationConfig,
+  }
+}
+
+/** Gemini 응답에서 { date, unitPrice, liters, paid }를 꺼낸다. 형식이 맞지 않으면 null */
+function parseGeminiResponse_(body) {
+  let json
+  try {
+    json = JSON.parse(body)
+  } catch (e) {
+    return null
+  }
+  const parts = (json && json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) || []
+  const text = parts
+    .map(function (p) {
+      return typeof p.text === 'string' && !p.thought ? p.text : ''
+    })
+    .join('')
+  let fields
+  try {
+    fields = JSON.parse(text)
+  } catch (e) {
+    return null
+  }
+  if (!fields || typeof fields !== 'object' || Array.isArray(fields)) return null
+  const number = function (v) {
+    return typeof v === 'number' && isFinite(v) ? v : null
+  }
+  return {
+    date: typeof fields.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(fields.date) ? fields.date : null,
+    unitPrice: number(fields.unitPrice),
+    liters: number(fields.liters),
+    paid: number(fields.paid),
+  }
+}
+
+/**
+ * Drive 글자 인식. 사진을 잠깐 Google 문서로 변환해 글자만 꺼내고 그 문서는 바로 영구 삭제한다.
+ * 결과 { text, tempFileLeft }. tempFileLeft가 true면 임시 문서를 지우지 못한 것이므로 앱이 사용자에게 Drive에서 지우도록 안내한다.
+ */
+function ocrWithDrive_(base64, mimeType) {
   const blob = Utilities.newBlob(Utilities.base64Decode(base64), mimeType, 'receipt')
   let fileId = null
   let text = null

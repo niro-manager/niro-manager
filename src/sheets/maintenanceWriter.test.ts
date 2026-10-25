@@ -23,7 +23,7 @@ class FakeSheet2 {
   backend: SheetsBackend = {
     getInfo: async () => ({ name: COPY_NAME }),
     getSheetId: async (name) => (name === '시트2' ? 7 : null),
-    ocrReceipt: async () => ({ text: '', tempFileLeft: false }),
+    ocrReceipt: async () => ({ engine: 'drive', fields: null, text: '', fallback: null, tempFileLeft: false }),
     batchUpdate: async (requests: any[]) => {
       this.requests.push(requests)
       for (const req of requests) {

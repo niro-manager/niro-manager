@@ -159,19 +159,132 @@ function findLitersBySuffix(all: string[]): number | null {
   return null
 }
 
+type TableColumn = 'liters' | 'unitPrice' | 'amount'
+
+interface TableRow {
+  liters: number
+  unitPrice: number
+  amount: number | null
+}
+
+const COLUMN_WORDS: [TableColumn, RegExp][] = [
+  ['liters', keywords(['주유량', '수량', '리터'])],
+  ['unitPrice', keywords(['단가'])],
+  ['amount', keywords(['금액'])],
+]
+// 표 머리글 줄: 열 이름(과 품명 칸 이름)만 있는 줄
+const HEADER_WORD = keywords(['제품명', '상품명', '품명', '유종', '주유량', '수량', '리터', '단가', '금액'])
+const HEADER_LINE = new RegExp(`^(?:${HEADER_WORD.source}|[\\s(:)/L원])+$`)
+const TABLE_NUMBER = /(?<![\d.,])(?:\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?![\d,]|\.\d)/g
+
+/** 머리글 줄에 나온 순서대로 열 이름을 모은다 */
+function headerColumns(line: string): TableColumn[] {
+  const found: { column: TableColumn; at: number }[] = []
+  for (const [column, word] of COLUMN_WORDS) {
+    const match = new RegExp(word.source, 'g').exec(line)
+    if (match) found.push({ column, at: match.index })
+  }
+  return found.sort((a, b) => a.at - b.at).map((f) => f.column)
+}
+
+function tableNumbers(line: string): number[] {
+  return [...line.matchAll(TABLE_NUMBER)].map((m) => Number(m[0].replace(/,/g, '')))
+}
+
+/** 단가×리터가 금액과 거의 같은지(±1%, ±100원) */
+function consistent(liters: number, unitPrice: number, amount: number): boolean {
+  return Math.abs(unitPrice * liters - amount) <= Math.max(100, amount * 0.01)
+}
+
+function validRow(row: TableRow): boolean {
+  return inRange(row.liters, LITERS_RANGE) && inRange(row.unitPrice, UNIT_PRICE_RANGE) && (row.amount === null || inRange(row.amount, PAID_RANGE))
+}
+
+function permutations<T>(items: T[]): T[][] {
+  if (items.length <= 1) return [items]
+  return items.flatMap((item, i) => permutations([...items.slice(0, i), ...items.slice(i + 1)]).map((rest) => [item, ...rest]))
+}
+
+/**
+ * "제품명 / 수량 단가 / 금액 / 휘발유 / 16.000 1809 28,944"처럼 머리글과 숫자 행으로 된 표.
+ * 머리글이 여러 줄로 나뉘어도 나온 순서대로 열을 맞춘다. 머리글 순서대로 읽은 값이 단가×리터 ≈ 금액을
+ * 만족하지 않으면, 세 숫자의 다른 순서 중 만족하는 해석을 쓴다.
+ */
+function findTable(all: string[]): TableRow | null {
+  for (let i = 0; i < all.length; i++) {
+    if (!HEADER_LINE.test(all[i]!) || headerColumns(all[i]!).length === 0) continue
+    const columns: TableColumn[] = []
+    let j = i
+    for (; j < all.length && HEADER_LINE.test(all[j]!); j++) columns.push(...headerColumns(all[j]!))
+    const unique = [...new Set(columns)]
+    if (unique.length < 2 || !unique.includes('liters') || !unique.includes('unitPrice')) continue
+    // 품명 줄(숫자 없음)을 건너뛰고, 숫자가 열 수보다 적으면 다음 숫자 줄을 이어 붙인다.
+    const numbers: number[] = []
+    for (let k = j; k < Math.min(all.length, j + 6) && numbers.length < unique.length; k++) {
+      const found = tableNumbers(all[k]!)
+      if (found.length === 0) {
+        if (numbers.length > 0) break
+        continue
+      }
+      numbers.push(...found)
+    }
+    if (numbers.length < unique.length) continue
+    const values = numbers.slice(0, unique.length)
+    const byHeader = Object.fromEntries(unique.map((column, n) => [column, values[n]])) as Partial<Record<TableColumn, number>>
+    const headerRow: TableRow = { liters: byHeader.liters!, unitPrice: byHeader.unitPrice!, amount: byHeader.amount ?? null }
+    if (headerRow.amount === null) {
+      if (validRow(headerRow)) return headerRow
+      continue
+    }
+    if (validRow(headerRow) && consistent(headerRow.liters, headerRow.unitPrice, headerRow.amount)) return headerRow
+    for (const [liters, unitPrice, amount] of permutations(values)) {
+      const row = { liters: liters!, unitPrice: unitPrice!, amount: amount! }
+      if (validRow(row) && consistent(row.liters, row.unitPrice, row.amount!)) return row
+    }
+    if (validRow(headerRow)) return headerRow
+  }
+  return null
+}
+
 /** OCR 글자에서 주유 기록 값을 찾는다. 못 찾은 값은 null */
 export function parseFuelReceipt(text: string): FuelReceipt {
   const all = lines(text)
+  // 표 양식은 머리글 다음 줄의 숫자를 다른 열 이름의 값으로 잘못 읽기 쉬워 먼저 본다.
+  const table = findTable(all)
   const multiplication = findMultiplication(all)
-  const unitPrice = valueAfterKeyword(all, UNIT_PRICE_KEYWORD, wonValues, UNIT_PRICE_RANGE) ?? multiplication?.unitPrice ?? null
+  const unitPrice =
+    table?.unitPrice ?? valueAfterKeyword(all, UNIT_PRICE_KEYWORD, wonValues, UNIT_PRICE_RANGE) ?? multiplication?.unitPrice ?? null
   const liters =
-    valueAfterKeyword(all, LITERS_KEYWORD, literValues, LITERS_RANGE, UNIT_PRICE_KEYWORD) ?? multiplication?.liters ?? findLitersBySuffix(all)
-  let paid: number | null = null
-  for (const keyword of PAID_KEYWORDS) {
-    paid = valueAfterKeyword(all, keyword, wonValues, PAID_RANGE, NOT_PAID)
+    table?.liters ??
+    valueAfterKeyword(all, LITERS_KEYWORD, literValues, LITERS_RANGE, UNIT_PRICE_KEYWORD) ??
+    multiplication?.liters ??
+    findLitersBySuffix(all)
+  // 결제·승인 금액이 있으면 그것이 실제로 낸 돈이고, 없으면 표의 금액, 그다음 합계·금액 순이다.
+  let paid = valueAfterKeyword(all, PAID_KEYWORDS[0]!, wonValues, PAID_RANGE, NOT_PAID) ?? table?.amount ?? null
+  for (const keyword of PAID_KEYWORDS.slice(1)) {
     if (paid !== null) break
+    paid = valueAfterKeyword(all, keyword, wonValues, PAID_RANGE, NOT_PAID)
   }
   return { date: findDate(all), unitPrice, liters, paid }
+}
+
+/**
+ * Gemini 등 다른 곳에서 받은 값을 글자 해석과 같은 기준으로 확인한다.
+ * 숫자가 아니거나 범위를 벗어난 값, 없는 날짜는 null로 바꾼다. 리터는 소수점 아래 3자리로 맞춘다.
+ */
+export function sanitizeFuelReceipt(fields: Partial<Record<keyof FuelReceipt, unknown>>): FuelReceipt {
+  const number = (value: unknown, range: readonly [number, number]) =>
+    typeof value === 'number' && Number.isFinite(value) && inRange(value, range) ? value : null
+  const dateMatch = typeof fields.date === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(fields.date) : null
+  const liters = number(fields.liters, LITERS_RANGE)
+  const unitPrice = number(fields.unitPrice, UNIT_PRICE_RANGE)
+  const paid = number(fields.paid, PAID_RANGE)
+  return {
+    date: dateMatch ? isoDate(Number(dateMatch[1]), Number(dateMatch[2]), Number(dateMatch[3])) : null,
+    unitPrice: unitPrice === null ? null : Math.round(unitPrice),
+    liters: liters === null ? null : Math.round(liters * 1000) / 1000,
+    paid: paid === null ? null : Math.round(paid),
+  }
 }
 
 export interface ReceiptFill {
