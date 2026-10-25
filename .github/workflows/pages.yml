@@ -1,0 +1,47 @@
+name: Deploy launcher to GitHub Pages
+
+# 설치용 입구 페이지(launcher/)만 Pages에 배포한다. Apps Script 앱 빌드와는 별개다.
+# Settings → Pages → Source는 "GitHub Actions"를 사용한다.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.repository == 'niro-manager/niro-manager' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/check-launcher.mjs
+      - name: Stage launcher files (tests excluded)
+        run: |
+          mkdir -p _site
+          cp -R launcher/. _site/
+          find _site -name '*.test.js' -delete
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Niro Manager</title>
+    <meta name="description" content="니로 차계부 Apps Script 웹 앱을 여는 설치용 입구" />
+    <meta name="theme-color" content="#1f4e79" />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+    <meta name="apple-mobile-web-app-title" content="니로 차계부" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #1b1f24;
+        --muted: #57606a;
+        --accent: #1f4e79;
+        --border: #d0d7de;
+        --error: #b42318;
+        --ok: #1a7f37;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d1117;
+          --fg: #e6edf3;
+          --muted: #9198a1;
+          --accent: #6cb6ff;
+          --border: #3d444d;
+          --error: #ff7b72;
+          --ok: #3fb950;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 16px/1.5 system-ui, -apple-system, "Segoe UI", "Noto Sans KR", sans-serif;
+      }
+      main { max-width: 32rem; margin: 0 auto; padding: 24px 16px; }
+      h1 { font-size: 1.4rem; margin: 0 0 12px; }
+      p, ol { margin: 0 0 12px; }
+      ol { padding-left: 1.4rem; }
+      .muted { color: var(--muted); font-size: 0.9rem; }
+      label { display: block; font-weight: 600; margin-bottom: 6px; }
+      input {
+        width: 100%;
+        padding: 10px;
+        font: inherit;
+        font-size: 0.95rem;
+        color: inherit;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+      }
+      .buttons { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+      button, a.button {
+        padding: 10px 16px;
+        font: inherit;
+        border-radius: 8px;
+        border: 1px solid var(--accent);
+        cursor: pointer;
+        text-decoration: none;
+        text-align: center;
+      }
+      .primary { background: var(--accent); color: var(--bg); }
+      .secondary { background: transparent; color: var(--accent); }
+      .error { color: var(--error); }
+      .ok { color: var(--ok); }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Niro Manager</h1>
+
+      <section id="opening" hidden>
+        <p>차계부 웹 앱을 여는 중입니다…</p>
+      </section>
+
+      <section id="offline" hidden>
+        <p class="error"><strong>오프라인입니다.</strong></p>
+        <p>인터넷에 연결되면 차계부 웹 앱을 자동으로 엽니다.</p>
+        <div class="buttons">
+          <button type="button" class="primary" id="retry">다시 시도</button>
+          <a class="button secondary" href="./?setup=1">웹 앱 주소 바꾸기</a>
+        </div>
+      </section>
+
+      <section id="setup" hidden>
+        <p>이 기기에서 열 차계부 웹 앱 주소를 한 번 입력합니다. 주소는 이 기기에만 저장됩니다.</p>
+        <ol class="muted">
+          <li>차계부 스프레드시트에서 <strong>확장 프로그램 → Apps Script</strong>를 엽니다.</li>
+          <li><strong>배포 → 배포 관리</strong>에서 웹 앱 URL을 복사합니다.</li>
+          <li>아래에 붙여 넣고 저장합니다.</li>
+        </ol>
+        <form id="form" novalidate>
+          <label for="url">웹 앱 URL</label>
+          <input
+            id="url"
+            name="url"
+            type="url"
+            inputmode="url"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            placeholder="https://script.google.com/macros/s/…/exec"
+            required
+          />
+          <p id="error" class="error" role="alert" hidden></p>
+          <div class="buttons">
+            <button type="submit" class="primary">저장하고 열기</button>
+            <button type="button" class="secondary" id="clear" hidden>저장된 주소 지우기</button>
+          </div>
+        </form>
+        <p id="status" class="ok" role="status" hidden></p>
+      </section>
+
+      <section id="saved" hidden>
+        <p class="ok"><strong>주소를 저장했습니다.</strong></p>
+        <p>휴대폰에 앱으로 설치하려면 지금 설치하세요.</p>
+        <ul class="muted">
+          <li>Android Chrome: 메뉴(⋮) → <strong>앱 설치</strong> 또는 <strong>홈 화면에 추가</strong></li>
+          <li>iPhone Safari: 공유 → <strong>홈 화면에 추가</strong></li>
+        </ul>
+        <div class="buttons">
+          <a class="button primary" id="open" href="./" rel="noreferrer">웹 앱 열기</a>
+        </div>
+        <p class="muted">주소를 바꾸려면 이 페이지를 <code>?setup=1</code>을 붙여 엽니다.</p>
+      </section>
+
+      <noscript><p class="error">JavaScript를 켜야 합니다.</p></noscript>
+    </main>
+
+    <script type="module">
+      import { clearWebAppUrl, isSetupRequested, loadWebAppUrl, saveWebAppUrl } from './webAppUrl.js'
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {})
+      }
+
+      const sections = ['opening', 'offline', 'setup', 'saved'].map((id) => document.getElementById(id))
+      function show(id) {
+        for (const section of sections) section.hidden = section.id !== id
+      }
+
+      function getStorage() {
+        try {
+          return window.localStorage
+        } catch {
+          return null
+        }
+      }
+
+      const storage = getStorage()
+      const standalone =
+        window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
+
+      function open(url) {
+        if (!navigator.onLine) {
+          show('offline')
+          window.addEventListener('online', () => open(url), { once: true })
+          return
+        }
+        show('opening')
+        window.location.replace(url)
+      }
+
+      document.getElementById('retry').addEventListener('click', () => {
+        const url = storage && loadWebAppUrl(storage)
+        if (url) open(url)
+        else showSetup()
+      })
+
+      const input = document.getElementById('url')
+      const error = document.getElementById('error')
+      const status = document.getElementById('status')
+      const clear = document.getElementById('clear')
+
+      function showSetup() {
+        const saved = storage && loadWebAppUrl(storage)
+        input.value = saved ?? ''
+        clear.hidden = !saved
+        show('setup')
+      }
+
+      function showError(message) {
+        error.textContent = message
+        error.hidden = false
+        status.hidden = true
+      }
+
+      document.getElementById('form').addEventListener('submit', (event) => {
+        event.preventDefault()
+        if (!storage) {
+          showError('이 브라우저에서는 주소를 저장할 수 없습니다(사이트 데이터 저장이 막혀 있음).')
+          return
+        }
+        let url
+        try {
+          url = saveWebAppUrl(storage, input.value)
+        } catch {
+          showError('주소를 저장하지 못했습니다. 브라우저의 사이트 데이터 저장 설정을 확인하세요.')
+          return
+        }
+        if (!url) {
+          showError('https://script.google.com/macros/s/…/exec 형식의 웹 앱 URL만 저장할 수 있습니다.')
+          return
+        }
+        error.hidden = true
+        if (standalone) {
+          open(url)
+        } else {
+          document.getElementById('open').href = url
+          show('saved')
+        }
+      })
+
+      document.getElementById('open').addEventListener('click', (event) => {
+        const url = storage && loadWebAppUrl(storage)
+        if (!url) return
+        event.preventDefault()
+        open(url)
+      })
+
+      clear.addEventListener('click', () => {
+        if (storage) clearWebAppUrl(storage)
+        input.value = ''
+        clear.hidden = true
+        error.hidden = true
+        status.textContent = '저장된 주소를 지웠습니다.'
+        status.hidden = false
+      })
+
+      const savedUrl = storage && loadWebAppUrl(storage)
+      if (savedUrl && !isSetupRequested(window.location.search)) open(savedUrl)
+      else showSetup()
+    </script>
+  </body>
+</html>

@@ -4,7 +4,7 @@
 
 ## 현재 상태
 
-초기 개인용 운영 단계입니다. 기록 조회·월별 차트·주유 및 정비 입력·설정 백업을 제공합니다. 2026-10-11 사용자 결정으로 GitHub Pages + Google Cloud(OAuth·Picker) 방식에서 **차계부 스프레드시트에 연결된 Apps Script 웹 앱**으로 전환했습니다. 웹 앱은 소유자 계정으로 실행되고 소유자만 열 수 있어 앱에서 따로 로그인하지 않습니다. 설치와 배포는 [Apps Script 설치·배포 안내](docs/APPS_SCRIPT_SETUP.md)를 따릅니다.
+초기 개인용 운영 단계입니다. 기록 조회·월별 차트·주유 및 정비 입력·설정 백업을 제공합니다. 2026-10-11 사용자 결정으로 GitHub Pages + Google Cloud(OAuth·Picker) 방식에서 **차계부 스프레드시트에 연결된 Apps Script 웹 앱**으로 전환했습니다. 웹 앱은 소유자 계정으로 실행되고 소유자만 열 수 있어 앱에서 따로 로그인하지 않습니다. 2026-10-25 사용자 결정으로 휴대폰 설치용 **런처**(GitHub Pages `https://niro-manager.github.io/niro-manager/`)를 두어, 홈 화면 아이콘으로 열면 기기에 저장한 웹 앱 주소로 바로 이동합니다. 설치와 배포는 [Apps Script 설치·배포 안내](docs/APPS_SCRIPT_SETUP.md)를 따릅니다.
 
 ## 확정된 범위
 
@@ -12,7 +12,7 @@
 - 기존 스프레드시트의 기록, 탭, 열, 수식 및 서식을 보존합니다.
 - 주유 및 정비 내역 입력·조회와 Google Sheets 데이터 동기화를 지원합니다.
 - 월별 주유비, 주유량, 정비비, 주유 단가를 시각화합니다.
-- Android, iOS, Windows, macOS의 브라우저에서 사용합니다(Apps Script 웹 앱, 휴대폰은 홈 화면 바로가기). PWA 설치는 전환으로 제외했습니다.
+- Android, iOS, Windows, macOS의 브라우저에서 사용합니다(Apps Script 웹 앱). 휴대폰은 GitHub Pages 런처를 앱으로 설치해 웹 앱을 엽니다(웹 앱 화면 위에 얇은 주소 표시줄이 남을 수 있음).
 - 초기에는 별도 데이터베이스 서버를 사용하지 않습니다.
 
 ## 문서 구조
@@ -20,7 +20,7 @@
 - `AGENTS.md`: Codex 작업 규칙, 아키텍처 원칙, 데이터 보호 및 브랜치/PR 규칙
 - `CLAUDE.md`: 확정 요구사항, 진행 상황, 미결정 사항 및 TODO
 - `docs/CODEX_START.md`: Codex에서 개발을 이어가는 절차
-- `docs/APPS_SCRIPT_SETUP.md`: Apps Script 설치·웹 앱 배포·업데이트 절차
+- `docs/APPS_SCRIPT_SETUP.md`: Apps Script 설치·웹 앱 배포·업데이트, 휴대폰에 앱으로 설치(런처) 절차
 - `docs/SHEET_ANALYSIS.md`: 차계부 시트 구조 분석(읽기 전용, 개인 기록 제외)
 - `.github/pull_request_template.md`: 변경 내용과 검증을 기록하는 PR 양식
 
@@ -32,7 +32,8 @@ Node.js 22 이상이 필요합니다.
 npm install
 npm run typecheck  # 타입 검사
 npm run lint       # oxlint
-npm test           # vitest 단위 테스트
+npm test           # vitest 단위 테스트(런처 주소 검사 포함)
+npm run check:launcher  # 런처 manifest·아이콘·서비스 워커 캐시 목록 검사
 npm run build      # dist/에 Apps Script용 index.html·Code.js·appsscript.json 생성
 ```
 
@@ -50,7 +51,9 @@ npm run build      # dist/에 Apps Script용 index.html·Code.js·appsscript.jso
 - `src/entry/drafts.ts`, `src/session/useOnline.ts`: 저장하지 않은 입력 임시 보관, 오프라인 안내와 연결 복구 시 재읽기(기록 자체는 기기에 저장하지 않음)
 - `src/domain/monthly.ts`, `src/charts/`: 월별 집계(주유 단가는 리터 가중 평균)와 SVG 차트
 - `src/settings/`: 탭 이름 설정, localStorage 저장, JSON 백업·불러오기
-- `.github/workflows/ci.yml`: PR·main에서 타입 검사, 린트, 테스트, 빌드 후 `apps-script` 아티팩트 업로드
+- `launcher/`: GitHub Pages 런처(정적 파일, 빌드 없음). `index.html`(저장된 웹 앱 주소로 `location.replace`, 없으면 입력 화면, `?setup=1`로 변경·삭제), `webAppUrl.js`(주소 형식 검사·저장), `manifest.webmanifest`(`id` `/niro-manager/niro-manager`), `sw.js`(같은 출처 런처 파일만 캐시), 아이콘
+- `.github/workflows/ci.yml`: PR·main에서 타입 검사, 린트, 테스트, 런처 검사, 빌드 후 `apps-script` 아티팩트 업로드
+- `.github/workflows/pages.yml`: main push 시 `launcher/`만 GitHub Pages로 배포
 
 ## 개발 시작
 
@@ -64,4 +67,4 @@ npm run build      # dist/에 Apps Script용 index.html·Code.js·appsscript.jso
 
 복사본에서 추가·끼워 넣기·수식·서식 보존을 검증한 뒤 사용자 승인으로 원본 저장을 활성화했습니다. 저장 전 확인·중복 경고·저장 직전 재조회·저장 후 검증을 유지합니다. 인증 토큰, 개인정보, 실제 차계부 내보내기 파일은 Git에 저장하지 않습니다.
 
-스프레드시트 ID와 Apps Script 스크립트 ID(`.clasp.json`)는 커밋하지 않습니다.
+스프레드시트 ID, Apps Script 스크립트 ID(`.clasp.json`), 웹 앱 URL은 커밋하지 않습니다. 런처는 웹 앱 URL을 각 기기의 브라우저 저장소에만 둡니다.

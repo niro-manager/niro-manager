@@ -6,7 +6,7 @@
 
 Niro Manager는 개인용 차량 관리 웹 앱입니다(Apps Script 웹 앱). 기존 Google Drive의 `차계부` Google 스프레드시트가 원본 데이터 저장소이며, 초기에는 별도 데이터베이스 서버를 두지 않습니다.
 
-현재 앱은 초기 개인용 운영 단계입니다. MVP(기록 조회·월별 차트·설정)와 2단계 주유·정비 입력을 Vite + React + TypeScript로 구현했고, 2026-10-11 사용자 승인으로 원본 저장을 활성화했습니다. 같은 날 사용자 결정으로 GitHub Pages·Google Cloud(OAuth·Picker)·PWA를 버리고 차계부에 연결된 Apps Script 웹 앱으로 전환했습니다. 확정된 결정과 남은 TODO는 `CLAUDE.md`를 따릅니다. 기존 다른 저장소는 수정하지 않습니다.
+현재 앱은 초기 개인용 운영 단계입니다. MVP(기록 조회·월별 차트·설정)와 2단계 주유·정비 입력을 Vite + React + TypeScript로 구현했고, 2026-10-11 사용자 승인으로 원본 저장을 활성화했습니다. 같은 날 사용자 결정으로 GitHub Pages·Google Cloud(OAuth·Picker)·PWA를 버리고 차계부에 연결된 Apps Script 웹 앱으로 전환했습니다. 2026-10-25 사용자 결정으로 휴대폰 설치용 런처(`launcher/`)만 GitHub Pages에 다시 배포합니다(기록을 다루지 않는 정적 페이지). 확정된 결정과 남은 TODO는 `CLAUDE.md`를 따릅니다. 기존 다른 저장소는 수정하지 않습니다.
 
 ## Interactive Coding
 
