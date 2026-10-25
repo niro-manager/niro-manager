@@ -41,18 +41,19 @@ npm run build      # dist/에 Apps Script용 index.html·Code.js·appsscript.jso
 
 ## 코드 구조
 
-- `apps-script/Code.js`, `apps-script/appsscript.json`: Apps Script 서버(웹 앱 제공·런처 iframe 허용, 시트 읽기, 허용된 batchUpdate 요청만 적용, 영수증 사진 OCR(`ocrReceipt`, Drive 고급 서비스·임시 문서 즉시 삭제), Sheets 고급 서비스)
+- `apps-script/Code.js`, `apps-script/appsscript.json`: Apps Script 서버(웹 앱 제공·런처 iframe 허용, 시트 읽기, 허용된 batchUpdate 요청만 적용, 영수증 사진 인식(`ocrReceipt`: Gemini API 우선, 키 없음·실패 시 Drive OCR로 전환, 임시 문서 즉시 삭제), Sheets 고급 서비스)
 - `vite.config.ts`: JS·CSS를 `index.html` 한 파일로 묶고 서버 파일을 `dist/`에 복사
 - `src/domain/`: 시트 값 해석(날짜 직렬값, 빈 칸과 0 구분), 주유(`시트1`)·정비(`시트2`) 기록 매핑
 - `src/sheets/`: 시트 어댑터(`sheetsClient.ts` 연결 형식, `appsScriptBackend.ts` 서버 함수 호출과 오류 구분), 읽기
 - `src/records/`: 기록 목록 화면, 시트 읽기 상태(`useLogbook.ts`: 열면 바로 읽기, 앱 복귀 시 5분 경과면 재읽기)
 - `src/entry/`, `src/domain/fuelInput.ts`, `src/domain/maintenanceInput.ts`, `src/sheets/fuelWriter.ts`, `src/sheets/maintenanceWriter.ts`: 주유·정비 입력, 쓰기 위치 계산(추가/날짜순 끼워 넣기), batchUpdate 쓰기와 저장 후 검증
-- `src/domain/fuelReceipt.ts`, `src/entry/receiptImage.ts`: 주유 영수증 OCR 글자에서 날짜·단가·리터·결제 금액 찾기와 입력 칸 채우기, 사진 축소(긴 변 1600px JPEG). 채우기만 하고 저장은 사용자가 확인 화면에서 직접 함
+- `src/domain/fuelReceipt.ts`, `src/entry/receiptImage.ts`: 주유 영수증 OCR 글자(표 양식 포함)에서 날짜·단가·리터·결제 금액 찾기, Gemini 값 범위 확인, 입력 칸 채우기, 사진 축소(긴 변 1600px JPEG). 채우기만 하고 저장은 사용자가 확인 화면에서 직접 함
 - `src/sheets/writeGuard.ts`: 원본 쓰기 잠금 스위치
 - `src/entry/drafts.ts`, `src/session/useOnline.ts`: 저장하지 않은 입력 임시 보관, 오프라인 안내와 연결 복구 시 재읽기(기록 자체는 기기에 저장하지 않음)
 - `src/domain/monthly.ts`, `src/charts/`: 월별 집계(주유 단가는 리터 가중 평균)와 SVG 차트
 - `src/settings/`: 탭 이름 설정, localStorage 저장, JSON 백업·불러오기
 - `launcher/`: GitHub Pages 런처(정적 파일, 빌드 없음). `index.html`(저장된 웹 앱을 전체 화면 iframe으로 끼워 넣거나 직접 열기, 없으면 입력 화면, `?setup=1`로 주소·열기 방식 변경), `webAppUrl.js`(주소 형식 검사, 주소·열기 방식 저장), `manifest.webmanifest`(`id` `/niro-manager/niro-manager`), `sw.js`(같은 출처 런처 파일만 캐시), 아이콘
+- `apps-script/Code.test.js`: Apps Script 서비스를 가짜로 바꿔 `Code.js`의 영수증 인식(Gemini 요청·응답, Drive 전환)을 확인하는 테스트
 - `.github/workflows/ci.yml`: PR·main에서 타입 검사, 린트, 테스트, 런처 검사, 빌드 후 `apps-script` 아티팩트 업로드
 - `.github/workflows/pages.yml`: main push 시 `launcher/`만 GitHub Pages로 배포
 

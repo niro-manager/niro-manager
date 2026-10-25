@@ -35,6 +35,7 @@ body { margin: 0; background: var(--bg); }
 .badge { font-size: 0.8rem; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
 .badge-original { color: var(--error); border-color: var(--error); }
 .badge-receipt { margin-left: 6px; font-size: 0.7rem; padding: 1px 6px; color: var(--primary); border-color: var(--primary); }
+.badge-engine { font-size: 0.7rem; padding: 1px 6px; color: var(--primary); border-color: var(--primary); }
 
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
 .tab { background: none; border: none; border-bottom: 2px solid transparent; padding: 10px 12px; color: var(--muted); font: inherit; cursor: pointer; }

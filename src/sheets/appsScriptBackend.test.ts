@@ -24,16 +24,34 @@ describe('createAppsScriptBackend', () => {
 })
 
 describe('ocrReceipt', () => {
-  it('사진을 base64와 형식으로 넘기고 글자를 돌려준다', async () => {
-    const call = vi.fn(async () => ({ text: '단가 1,689', tempFileLeft: false }))
+  it('사진을 base64와 형식으로 넘기고 Drive 인식 글자를 돌려준다', async () => {
+    const call = vi.fn(async () => ({ engine: 'drive', text: '단가 1,689', tempFileLeft: false, gemini: 'no-key' }))
     const backend = createAppsScriptBackend(call)
-    expect(await backend.ocrReceipt({ base64: 'AAAA', mimeType: 'image/jpeg' })).toEqual({ text: '단가 1,689', tempFileLeft: false })
+    expect(await backend.ocrReceipt({ base64: 'AAAA', mimeType: 'image/jpeg' })).toEqual({
+      engine: 'drive',
+      fields: null,
+      text: '단가 1,689',
+      fallback: 'no-key',
+      tempFileLeft: false,
+    })
     expect(call).toHaveBeenCalledWith('ocrReceipt', 'AAAA', 'image/jpeg')
   })
 
-  it('비어 있는 응답은 빈 글자', async () => {
-    const backend = createAppsScriptBackend(async () => null)
-    expect(await backend.ocrReceipt({ base64: 'AAAA', mimeType: 'image/png' })).toEqual({ text: '', tempFileLeft: false })
+  it('Gemini가 읽은 값을 돌려준다', async () => {
+    const fields = { date: '2026-10-25', unitPrice: 1809, liters: 16, paid: 28944 }
+    const backend = createAppsScriptBackend(async () => ({ engine: 'gemini', fields, text: '', tempFileLeft: false }))
+    expect(await backend.ocrReceipt({ base64: 'AAAA', mimeType: 'image/jpeg' })).toEqual({ engine: 'gemini', fields, text: '', fallback: null, tempFileLeft: false })
+  })
+
+  it('이전 서버(엔진 표시 없음)나 비어 있는 응답은 Drive 인식으로 본다', async () => {
+    expect(await createAppsScriptBackend(async () => ({ text: '글자', tempFileLeft: false })).ocrReceipt({ base64: 'AAAA', mimeType: 'image/png' })).toEqual({
+      engine: 'drive',
+      fields: null,
+      text: '글자',
+      fallback: null,
+      tempFileLeft: false,
+    })
+    expect(await createAppsScriptBackend(async () => null).ocrReceipt({ base64: 'AAAA', mimeType: 'image/png' })).toMatchObject({ engine: 'drive', text: '' })
   })
 })
 

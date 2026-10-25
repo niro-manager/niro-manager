@@ -44,7 +44,14 @@ export interface ReceiptImage {
 }
 
 export interface ReceiptOcr {
+  /** 값을 읽은 방법: Gemini가 값을 바로 읽었거나, Drive 글자 인식 글자를 앱이 해석한다 */
+  engine: 'gemini' | 'drive'
+  /** Gemini가 읽은 값(검증 전). Drive 인식이면 null */
+  fields: Record<string, unknown> | null
+  /** Drive 인식 글자. Gemini면 빈 글자 */
   text: string
+  /** Drive로 읽은 이유: 키 없음, 무료 한도 초과, Gemini 실패. Gemini로 읽었거나 서버가 알려 주지 않으면 null */
+  fallback: 'no-key' | 'quota' | 'failed' | null
   /** 서버가 임시 문서를 지우지 못했으면 true */
   tempFileLeft: boolean
 }

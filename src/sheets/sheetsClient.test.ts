@@ -19,7 +19,7 @@ describe('targetOf', () => {
 describe('readLogbook', () => {
   it('두 탭을 한 번에 읽어 기록으로 바꾼다', async () => {
     const batchGetValues = vi.fn(async (_ranges: string[]) => [[[45303, '금', 1500, 16, 24000]], [[45469, '점검', '업체', 9000, 0], ['', '추가 항목']]])
-    const backend: SheetsBackend = { getInfo: async () => ({ name: '차계부' }), getSheetId: async () => 0, batchUpdate: async () => undefined, ocrReceipt: async () => ({ text: '', tempFileLeft: false }), batchGetValues }
+    const backend: SheetsBackend = { getInfo: async () => ({ name: '차계부' }), getSheetId: async () => 0, batchUpdate: async () => undefined, ocrReceipt: async () => ({ engine: 'drive', fields: null, text: '', fallback: null, tempFileLeft: false }), batchGetValues }
     const logbook = await readLogbook({ backend, spreadsheetName: '차계부', fuelSheetName: '시트1', maintenanceSheetName: '시트2' })
     expect(batchGetValues).toHaveBeenCalledWith(["'시트1'!A2:I", "'시트2'!A1:E"])
     expect(logbook.fuel).toHaveLength(1)
