@@ -4,7 +4,7 @@
 
 ## 현재 상태
 
-초기 개인용 운영 단계입니다. 기록 조회·월별 차트·주유 및 정비 입력·설정 백업을 제공합니다. 2026-10-11 사용자 결정으로 GitHub Pages + Google Cloud(OAuth·Picker) 방식에서 **차계부 스프레드시트에 연결된 Apps Script 웹 앱**으로 전환했습니다. 웹 앱은 소유자 계정으로 실행되고 소유자만 열 수 있어 앱에서 따로 로그인하지 않습니다. 2026-10-25 사용자 결정으로 휴대폰 설치용 **런처**(GitHub Pages `https://niro-manager.github.io/niro-manager/`)를 두어, 홈 화면 아이콘으로 열면 기기에 저장한 웹 앱을 런처 화면 안에 끼워 넣어(iframe) 엽니다. 기기별로 직접 열기도 고를 수 있습니다. 설치와 배포는 [Apps Script 설치·배포 안내](docs/APPS_SCRIPT_SETUP.md)를 따릅니다.
+초기 개인용 운영 단계입니다. 기록 조회·월별 차트·주유 및 정비 입력(주유는 영수증 사진으로 칸 채우기 지원)·설정 백업을 제공합니다. 2026-10-11 사용자 결정으로 GitHub Pages + Google Cloud(OAuth·Picker) 방식에서 **차계부 스프레드시트에 연결된 Apps Script 웹 앱**으로 전환했습니다. 웹 앱은 소유자 계정으로 실행되고 소유자만 열 수 있어 앱에서 따로 로그인하지 않습니다. 2026-10-25 사용자 결정으로 휴대폰 설치용 **런처**(GitHub Pages `https://niro-manager.github.io/niro-manager/`)를 두어, 홈 화면 아이콘으로 열면 기기에 저장한 웹 앱을 런처 화면 안에 끼워 넣어(iframe) 엽니다. 기기별로 직접 열기도 고를 수 있습니다. 설치와 배포는 [Apps Script 설치·배포 안내](docs/APPS_SCRIPT_SETUP.md)를 따릅니다.
 
 ## 확정된 범위
 
@@ -41,12 +41,13 @@ npm run build      # dist/에 Apps Script용 index.html·Code.js·appsscript.jso
 
 ## 코드 구조
 
-- `apps-script/Code.js`, `apps-script/appsscript.json`: Apps Script 서버(웹 앱 제공·런처 iframe 허용, 시트 읽기, 허용된 batchUpdate 요청만 적용, Sheets 고급 서비스)
+- `apps-script/Code.js`, `apps-script/appsscript.json`: Apps Script 서버(웹 앱 제공·런처 iframe 허용, 시트 읽기, 허용된 batchUpdate 요청만 적용, 영수증 사진 OCR(`ocrReceipt`, Drive 고급 서비스·임시 문서 즉시 삭제), Sheets 고급 서비스)
 - `vite.config.ts`: JS·CSS를 `index.html` 한 파일로 묶고 서버 파일을 `dist/`에 복사
 - `src/domain/`: 시트 값 해석(날짜 직렬값, 빈 칸과 0 구분), 주유(`시트1`)·정비(`시트2`) 기록 매핑
 - `src/sheets/`: 시트 어댑터(`sheetsClient.ts` 연결 형식, `appsScriptBackend.ts` 서버 함수 호출과 오류 구분), 읽기
 - `src/records/`: 기록 목록 화면, 시트 읽기 상태(`useLogbook.ts`: 열면 바로 읽기, 앱 복귀 시 5분 경과면 재읽기)
 - `src/entry/`, `src/domain/fuelInput.ts`, `src/domain/maintenanceInput.ts`, `src/sheets/fuelWriter.ts`, `src/sheets/maintenanceWriter.ts`: 주유·정비 입력, 쓰기 위치 계산(추가/날짜순 끼워 넣기), batchUpdate 쓰기와 저장 후 검증
+- `src/domain/fuelReceipt.ts`, `src/entry/receiptImage.ts`: 주유 영수증 OCR 글자에서 날짜·단가·리터·결제 금액 찾기와 입력 칸 채우기, 사진 축소(긴 변 1600px JPEG). 채우기만 하고 저장은 사용자가 확인 화면에서 직접 함
 - `src/sheets/writeGuard.ts`: 원본 쓰기 잠금 스위치
 - `src/entry/drafts.ts`, `src/session/useOnline.ts`: 저장하지 않은 입력 임시 보관, 오프라인 안내와 연결 복구 시 재읽기(기록 자체는 기기에 저장하지 않음)
 - `src/domain/monthly.ts`, `src/charts/`: 월별 집계(주유 단가는 리터 가중 평균)와 SVG 차트

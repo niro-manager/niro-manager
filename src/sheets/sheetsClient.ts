@@ -33,6 +33,20 @@ export interface SheetsBackend {
   getSheetId(sheetName: string): Promise<number | null>
   /** spreadsheets.batchUpdate. 요청들은 순서대로, 전부 적용되거나 전부 적용되지 않는다 */
   batchUpdate(requests: unknown[]): Promise<void>
+  /** 영수증 사진의 글자를 읽는다(Drive OCR). 시트에는 쓰지 않는다 */
+  ocrReceipt(image: ReceiptImage): Promise<ReceiptOcr>
+}
+
+export interface ReceiptImage {
+  /** data: 접두사 없는 base64 */
+  base64: string
+  mimeType: 'image/jpeg' | 'image/png'
+}
+
+export interface ReceiptOcr {
+  text: string
+  /** 서버가 임시 문서를 지우지 못했으면 true */
+  tempFileLeft: boolean
 }
 
 export type SheetTarget = 'copy' | 'original'

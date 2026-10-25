@@ -1,5 +1,5 @@
 import type { CellValue } from '../domain/cells'
-import { SheetsError, type SheetsBackend, type SheetsErrorKind } from './sheetsClient'
+import { SheetsError, type ReceiptOcr, type SheetsBackend, type SheetsErrorKind } from './sheetsClient'
 
 // Apps Script 웹 앱 안에서 google.script.run으로 서버 함수(apps-script/Code.js)를 부른다.
 // 웹 앱은 소유자 계정으로 실행되므로 앱에서 따로 로그인하거나 토큰을 다루지 않는다.
@@ -67,6 +67,10 @@ export function createAppsScriptBackend(call: ServerCall = googleScriptCall): Sh
     },
     async batchUpdate(requests) {
       await invoke<null>('batchUpdate', requests)
+    },
+    async ocrReceipt(image) {
+      const result = await invoke<Partial<ReceiptOcr> | null>('ocrReceipt', image.base64, image.mimeType)
+      return { text: typeof result?.text === 'string' ? result.text : '', tempFileLeft: result?.tempFileLeft === true }
     },
   }
 }
