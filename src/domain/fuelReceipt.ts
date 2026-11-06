@@ -246,11 +246,82 @@ function findTable(all: string[]): TableRow | null {
   return null
 }
 
+interface NumberToken {
+  value: number
+  /** 글자 안에서의 순서 */
+  index: number
+}
+
+// 곱 일치에서 숫자로 쓰지 않을 부분: 날짜·시각, 하이픈으로 이은 번호(전화·사업자·카드), 번호 이름 뒤의 값
+const NOT_A_QUANTITY = [
+  FULL_DATE,
+  SHORT_DATE,
+  /\d{1,2}:\d{2}(?::\d{2})?/g,
+  /[\dX*]+(?:-[\dX*]+)+/gi,
+  new RegExp(`(?:${keywords(['번호', '사업자', '전화', 'TEL', 'TID', 'NO']).source})\\s*[:.]?\\s*\\S+`, 'gi'),
+]
+
+/** 글자 속 숫자들. 0으로 시작하는 번호("01", "05")는 수량이 아니므로 뺀다 */
+function quantityTokens(all: string[]): NumberToken[] {
+  const tokens: NumberToken[] = []
+  for (const line of all) {
+    const cleaned = NOT_A_QUANTITY.reduce((text, pattern) => text.replace(pattern, ' '), line)
+    for (const m of cleaned.matchAll(TABLE_NUMBER)) {
+      if (/^0\d/.test(m[0])) continue
+      tokens.push({ value: Number(m[0].replace(/,/g, '')), index: tokens.length })
+    }
+  }
+  return tokens
+}
+
+/**
+ * 줄 배치와 상관없이, 리터 범위의 수 × 단가 범위의 수가 다른 금액과 맞는(±max(1원, 0.1%)) 조합을 찾는다.
+ * 후보가 여럿이면 결제·합계 금액과 같은 금액을 쓰는 조합, 그다음 오차가 작은 조합, 그다음 먼저 나온 조합을 고른다.
+ */
+function findProductMatch(all: string[], paidHint: number | null): TableRow | null {
+  const tokens = quantityTokens(all)
+  const liters = tokens.filter((t) => inRange(t.value, LITERS_RANGE) && t.value !== 1)
+  const prices = tokens.filter((t) => inRange(t.value, UNIT_PRICE_RANGE))
+  const amounts = tokens.filter((t) => inRange(t.value, PAID_RANGE) && Number.isInteger(t.value))
+  let best: { row: TableRow; score: [number, number, number] } | null = null
+  for (const l of liters) {
+    for (const p of prices) {
+      if (p.index === l.index) continue
+      const product = l.value * p.value
+      for (const a of amounts) {
+        if (a.index === l.index || a.index === p.index) continue
+        const error = Math.abs(product - a.value)
+        if (error > Math.max(1, a.value * 0.001)) continue
+        const score: [number, number, number] = [a.value === paidHint ? 0 : 1, error, Math.max(l.index, p.index, a.index)]
+        if (!best || lexicallyLess(score, best.score)) best = { row: { liters: l.value, unitPrice: p.value, amount: a.value }, score }
+      }
+    }
+  }
+  return best?.row ?? null
+}
+
+function lexicallyLess(a: number[], b: number[]): boolean {
+  const i = a.findIndex((value, n) => value !== b[n])
+  return i >= 0 && a[i]! < b[i]!
+}
+
+function keywordPaid(all: string[], tiers: RegExp[]): number | null {
+  for (const keyword of tiers) {
+    const value = valueAfterKeyword(all, keyword, wonValues, PAID_RANGE, NOT_PAID)
+    if (value !== null) return value
+  }
+  return null
+}
+
 /** OCR 글자에서 주유 기록 값을 찾는다. 못 찾은 값은 null */
 export function parseFuelReceipt(text: string): FuelReceipt {
   const all = lines(text)
-  // 표 양식은 머리글 다음 줄의 숫자를 다른 열 이름의 값으로 잘못 읽기 쉬워 먼저 본다.
-  const table = findTable(all)
+  const approved = keywordPaid(all, PAID_KEYWORDS.slice(0, 1))
+  const total = keywordPaid(all, PAID_KEYWORDS.slice(1, 2))
+  // 1) 곱 일치: 줄 배치가 어떻든 리터×단가=금액인 세 수를 찾으면 가장 믿을 만하다.
+  // 2) 표 양식: 머리글 다음 줄의 숫자를 다른 열 이름의 값으로 잘못 읽기 쉬워 키워드보다 먼저 본다.
+  const match = findProductMatch(all, approved ?? total)
+  const table = match ?? findTable(all)
   const multiplication = findMultiplication(all)
   const unitPrice =
     table?.unitPrice ?? valueAfterKeyword(all, UNIT_PRICE_KEYWORD, wonValues, UNIT_PRICE_RANGE) ?? multiplication?.unitPrice ?? null
@@ -259,12 +330,8 @@ export function parseFuelReceipt(text: string): FuelReceipt {
     valueAfterKeyword(all, LITERS_KEYWORD, literValues, LITERS_RANGE, UNIT_PRICE_KEYWORD) ??
     multiplication?.liters ??
     findLitersBySuffix(all)
-  // 결제·승인 금액이 있으면 그것이 실제로 낸 돈이고, 없으면 표의 금액, 그다음 합계·금액 순이다.
-  let paid = valueAfterKeyword(all, PAID_KEYWORDS[0]!, wonValues, PAID_RANGE, NOT_PAID) ?? table?.amount ?? null
-  for (const keyword of PAID_KEYWORDS.slice(1)) {
-    if (paid !== null) break
-    paid = valueAfterKeyword(all, keyword, wonValues, PAID_RANGE, NOT_PAID)
-  }
+  // 결제·승인 금액이 있으면 그것이 실제로 낸 돈이고, 없으면 곱 일치·표의 금액, 그다음 합계·금액 순이다.
+  const paid = approved ?? table?.amount ?? total ?? keywordPaid(all, PAID_KEYWORDS.slice(2))
   return { date: findDate(all), unitPrice, liters, paid }
 }
 
@@ -291,15 +358,23 @@ export interface ReceiptFill {
   form: FuelForm
   /** 영수증에서 읽어 채운 입력 칸 */
   filled: (keyof FuelForm)[]
-  /** 영수증에서 찾지 못한 값 */
+  /** 영수증에서 찾지 못한 값(결제 금액은 단가·리터가 없어 필요할 때만) */
   missing: ReceiptField[]
+  /** 단가·리터를 다 얻지 못해 칸에 넣지 않고 참고로만 보여 줄 영수증 결제액 */
+  paidReference: number | null
+}
+
+/** 영수증 결제액이 단가×리터와 이만큼 넘게 다르면(상품권·할인 등) 직접 입력 금액으로 쓴다 */
+export function paidDiffers(computed: number, paid: number): boolean {
+  return Math.abs(paid - computed) > Math.max(100, computed * 0.01)
 }
 
 /**
- * 영수증에서 읽은 값으로 주유 입력 칸을 채운다.
- * - 찾은 날짜·단가·리터는 덮어쓰고, 찾지 못한 단가·리터·결제 금액은 비운다(날짜는 그대로 둔다).
- * - 누적 km·비고는 영수증에 없으므로 그대로 둔다.
- * - 결제 금액이 단가×리터(원 단위 반올림)와 다르거나, 단가·리터를 못 찾아 비교할 수 없으면 "결제액이 다름"을 켜고 금액을 넣는다.
+ * 영수증에서 읽은 값으로 주유 입력 칸을 채운다(2026-11-06 사용자 요청: 주유비는 단가×리터가 기본).
+ * - 찾은 날짜·단가·리터는 덮어쓰고, 찾지 못한 단가·리터는 비운다(날짜는 그대로 둔다). 누적 km·비고는 그대로 둔다.
+ * - 단가·리터를 모두 얻었으면 "결제액이 다름"은 끄고, 영수증 결제액이 단가×리터(원 단위 반올림)와
+ *   max(100원, 1%)를 넘게 다를 때만 켜고 결제액을 넣는다.
+ * - 단가나 리터를 못 얻으면 "결제액이 다름"을 켜지 않고, 결제액은 참고로만 돌려준다.
  */
 export function fillFuelForm(form: FuelForm, receipt: FuelReceipt): ReceiptFill {
   const next: FuelForm = { ...form, unitPrice: '', liters: '', manualCostEnabled: false, manualCost: '' }
@@ -316,14 +391,19 @@ export function fillFuelForm(form: FuelForm, receipt: FuelReceipt): ReceiptFill 
     next.liters = String(Math.round(receipt.liters * 1000) / 1000)
     filled.push('liters')
   }
+  const both = receipt.unitPrice !== null && receipt.liters !== null
+  let paidReference: number | null = null
   if (receipt.paid !== null) {
-    const computed = receipt.unitPrice !== null && receipt.liters !== null ? Math.round(receipt.unitPrice * receipt.liters) : null
-    if (computed !== receipt.paid) {
+    if (both && paidDiffers(Math.round(receipt.unitPrice! * receipt.liters!), receipt.paid)) {
       next.manualCostEnabled = true
       next.manualCost = String(receipt.paid)
       filled.push('manualCost')
+    } else if (!both) {
+      paidReference = receipt.paid
     }
   }
-  const missing = (Object.keys(RECEIPT_FIELD_LABELS) as ReceiptField[]).filter((field) => receipt[field] === null)
-  return { form: next, filled, missing }
+  const missing = (Object.keys(RECEIPT_FIELD_LABELS) as ReceiptField[]).filter(
+    (field) => receipt[field] === null && (field !== 'paid' || !both),
+  )
+  return { form: next, filled, missing, paidReference }
 }

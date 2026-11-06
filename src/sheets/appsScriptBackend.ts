@@ -69,19 +69,22 @@ export function createAppsScriptBackend(call: ServerCall = googleScriptCall): Sh
       await invoke<null>('batchUpdate', requests)
     },
     async ocrReceipt(image) {
-      const result = await invoke<{ engine?: unknown; fields?: unknown; text?: unknown; gemini?: unknown; tempFileLeft?: unknown } | null>(
+      const result = await invoke<{ engine?: unknown; fields?: unknown; text?: unknown; gemini?: unknown; geminiStatus?: unknown; tempFileLeft?: unknown } | null>(
         'ocrReceipt',
         image.base64,
         image.mimeType,
       )
       const engine = result?.engine === 'gemini' ? 'gemini' : 'drive'
       const fields = engine === 'gemini' && result?.fields && typeof result.fields === 'object' ? (result.fields as Record<string, unknown>) : null
-      const fallback = engine === 'drive' && (result?.gemini === 'no-key' || result?.gemini === 'quota' || result?.gemini === 'failed') ? result.gemini : null
+      const reasons = ['no-key', 'quota', 'failed', 'network'] as const
+      const fallback = engine === 'drive' ? (reasons.find((r) => r === result?.gemini) ?? null) : null
+      const status = result?.geminiStatus
       return {
         engine: fields ? 'gemini' : 'drive',
         fields,
         text: typeof result?.text === 'string' ? result.text : '',
         fallback,
+        geminiStatus: fallback && typeof status === 'number' && Number.isInteger(status) ? status : null,
         tempFileLeft: result?.tempFileLeft === true,
       } satisfies ReceiptOcr
     },
