@@ -12,6 +12,9 @@ export function fallbackMessage(ocr: Pick<ReceiptOcr, 'engine' | 'fallback' | 'g
     case 'network':
       return 'Gemini에 연결하지 못해 Drive 인식으로 읽었습니다.'
     case 'failed':
+      if (ocr.geminiStatus !== null && [500, 502, 503, 504].includes(ocr.geminiStatus)) {
+        return `Gemini 서버가 혼잡해(HTTP ${ocr.geminiStatus}) Drive 인식으로 읽었습니다. 잠시 뒤 다시 찍으면 Gemini로 읽을 수 있습니다.`
+      }
       return ocr.geminiStatus === 200
         ? 'Gemini 응답을 해석하지 못해 Drive 인식으로 읽었습니다.'
         : `Gemini 요청이 실패해${ocr.geminiStatus === null ? '' : `(HTTP ${ocr.geminiStatus})`} Drive 인식으로 읽었습니다.`
