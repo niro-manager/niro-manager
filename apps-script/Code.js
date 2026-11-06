@@ -96,10 +96,27 @@ function ocrReceipt(base64, mimeType) {
 const GEMINI_MODEL_CACHE_KEY_ = 'GEMINI_RESOLVED_MODEL'
 const GEMINI_MODEL_CACHE_SECONDS_ = 6 * 60 * 60
 
+// Gemini 서버 혼잡(5xx) 대비: 같은 모델로 1초·2초 쉬고 최대 2번 더 시도한다. 모든 Gemini 시도(대기 포함)의 합계는 약 20초 안으로 둔다.
+// UrlFetchApp에는 요청별 시간 제한 옵션이 없어, 새 대기·시도를 시작하기 전에 "지난 시간 + 대기 + 지금까지 가장 오래 걸린 요청 시간"이
+// 상한 안인지 확인한다(한 요청이 아주 오래 걸리면 그 요청 자체는 끊지 못한다).
+const GEMINI_RETRY_DELAYS_MS_ = [1000, 2000]
+const GEMINI_TIME_BUDGET_MS_ = 20000
+
+/** 테스트에서 바꿀 수 있게 따로 둔 현재 시각(ms) */
+function geminiNow_() {
+  return Date.now()
+}
+
+function isGeminiBusy_(status) {
+  return status === 500 || status === 502 || status === 503 || status === 504
+}
+
 /**
- * Gemini로 값을 읽는다. 성공하면 { fields, model }, 실패하면 { reason, status }.
+ * Gemini로 값을 읽는다. 성공하면 { fields, model }, 실패하면 { reason, status }(status는 마지막 시도의 상태 코드).
  * GEMINI_MODEL 속성이 있으면 그 모델만 쓴다. 없으면 캐시해 둔 모델이나 기본 모델을 쓰고, 그 모델이 없다는 응답(404)이면
  * 같은 키로 쓸 수 있는 모델 목록에서 가장 새 Flash를 골라 한 번 더 시도한 뒤 성공한 모델을 6시간 캐시한다.
+ * 5xx면 같은 모델로 다시 시도하고(GEMINI_RETRY_DELAYS_MS_), 그래도 5xx이고 GEMINI_MODEL이 없으면 목록에서 고른 다른 Flash 계열
+ * 모델로 한 번 더 시도한다(일시 대체라 캐시하지 않는다).
  */
 function readWithGemini_(base64, mimeType) {
   const properties = PropertiesService.getScriptProperties()
@@ -109,17 +126,44 @@ function readWithGemini_(base64, mimeType) {
   const cache = CacheService.getScriptCache()
   let model = configured || cache.get(GEMINI_MODEL_CACHE_KEY_) || GEMINI_DEFAULT_MODEL_
   if (!/^[A-Za-z0-9.-]+$/.test(model)) return { reason: 'failed', status: null }
-  let attempt = callGemini_(apiKey, model, base64, mimeType)
+  const startedAt = geminiNow_()
+  let longest = 0
+  const call = (name) => {
+    const before = geminiNow_()
+    const result = callGemini_(apiKey, name, base64, mimeType)
+    longest = Math.max(longest, geminiNow_() - before)
+    return result
+  }
+  const hasTime = (waitMs) => geminiNow_() - startedAt + waitMs + longest <= GEMINI_TIME_BUDGET_MS_
+  let attempt = callGeminiWithRetry_(call, model, hasTime)
   if (attempt.status === 404 && !configured) {
     cache.remove(GEMINI_MODEL_CACHE_KEY_)
-    const latest = latestFlashModel_(apiKey)
-    if (latest && latest !== model) {
+    const latest = hasTime(0) ? latestFlashModel_(apiKey) : null
+    if (latest && latest !== model && hasTime(0)) {
       model = latest
-      attempt = callGemini_(apiKey, model, base64, mimeType)
+      attempt = callGeminiWithRetry_(call, model, hasTime)
       if (attempt.fields) cache.put(GEMINI_MODEL_CACHE_KEY_, model, GEMINI_MODEL_CACHE_SECONDS_)
     }
   }
+  if (isGeminiBusy_(attempt.status) && !configured && hasTime(0)) {
+    const alternate = alternateFlashModel_(apiKey, model)
+    if (alternate && hasTime(0)) {
+      model = alternate
+      attempt = call(model)
+    }
+  }
   return attempt.fields ? { fields: attempt.fields, model: model } : { reason: attempt.reason, status: attempt.status }
+}
+
+/** 같은 모델로 부르고, 5xx면 정해 둔 간격만큼 쉰 뒤 다시 부른다. 시간 상한 안에서만 대기·재시도한다 */
+function callGeminiWithRetry_(call, model, hasTime) {
+  let attempt = call(model)
+  for (const delay of GEMINI_RETRY_DELAYS_MS_) {
+    if (!isGeminiBusy_(attempt.status) || !hasTime(delay)) break
+    Utilities.sleep(delay)
+    attempt = call(model)
+  }
+  return attempt
 }
 
 /** generateContent 한 번. 오류 본문은 버리고 상태 코드 숫자만 돌려준다(키나 사진 내용이 섞일 수 있는 곳에 남기지 않는다) */
@@ -145,11 +189,8 @@ function callGemini_(apiKey, model, base64, mimeType) {
   return { reason: code === 429 ? 'quota' : 'failed', status: code }
 }
 
-/**
- * 이 키로 generateContent를 쓸 수 있는 모델 중 이름이 gemini-<버전>-flash인 것(lite·preview·exp·image·tts·live 등 접미사 없음)의
- * 가장 높은 버전. 목록을 못 받으면 null
- */
-function latestFlashModel_(apiKey) {
+/** 이 키로 generateContent를 쓸 수 있는 모델 목록에서 gemini-<버전>-flash와 gemini-<버전>-flash-lite만 { name, parts, lite }로. 못 받으면 null */
+function listFlashModels_(apiKey) {
   let models
   try {
     const response = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000', {
@@ -161,16 +202,35 @@ function latestFlashModel_(apiKey) {
   } catch (e) {
     return null
   }
-  let best = null
+  const found = []
   for (const m of models) {
     const name = String((m && m.name) || '').replace(/^models\//, '')
-    const version = /^gemini-(\d+(?:\.\d+)*)-flash$/.exec(name)
+    const match = /^gemini-(\d+(?:\.\d+)*)-flash(-lite)?$/.exec(name)
     const methods = (m && m.supportedGenerationMethods) || []
-    if (!version || methods.indexOf('generateContent') < 0) continue
-    const parts = version[1].split('.').map(Number)
-    if (!best || compareVersions_(parts, best.parts) > 0) best = { name: name, parts: parts }
+    if (!match || methods.indexOf('generateContent') < 0) continue
+    found.push({ name: name, parts: match[1].split('.').map(Number), lite: Boolean(match[2]) })
   }
-  return best ? best.name : null
+  return found
+}
+
+/**
+ * 이 키로 generateContent를 쓸 수 있는 모델 중 이름이 gemini-<버전>-flash인 것(lite·preview·exp·image·tts·live 등 접미사 없음)의
+ * 가장 높은 버전. 목록을 못 받으면 null
+ */
+function latestFlashModel_(apiKey) {
+  const flash = (listFlashModels_(apiKey) || []).filter((m) => !m.lite)
+  flash.sort((a, b) => compareVersions_(b.parts, a.parts))
+  return flash.length ? flash[0].name : null
+}
+
+/**
+ * 5xx로 지금 모델을 못 쓸 때 대신 쓸 Flash 계열 모델: 지금 모델이 아닌 gemini-<버전>-flash 또는 -flash-lite 중 버전이 가장 높은 것
+ * (같은 버전이면 lite가 아닌 쪽). 목록을 못 받거나 후보가 없으면 null
+ */
+function alternateFlashModel_(apiKey, current) {
+  const candidates = (listFlashModels_(apiKey) || []).filter((m) => m.name !== current)
+  candidates.sort((a, b) => compareVersions_(b.parts, a.parts) || Number(a.lite) - Number(b.lite))
+  return candidates.length ? candidates[0].name : null
 }
 
 function compareVersions_(a, b) {
