@@ -3,7 +3,7 @@
 # dist/의 index.html·Code.js·appsscript.json을 clasp로 올리고, 기존 웹 앱 배포를 새 버전으로 갱신한다(새 배포는 만들지 않아 URL 유지).
 #
 # 환경 변수
-#   NIRO_DEPLOY   GitHub Secret. 한 줄 JSON {"clasprc": <~/.clasprc.json 객체>, "scriptId": "...", "deploymentId": "..."(선택)}.
+#   NIRO_DEPLOY   GitHub Secret. base64(또는 한 줄 JSON) {"clasprc": <~/.clasprc.json 객체>, "scriptId": "...", "deploymentId": "..."(선택)}.
 #                 scripts/setup-deploy.sh가 만들어 준다. 없으면 배포를 건너뛰고 성공으로 끝낸다.
 #                 deploymentId가 없으면 @HEAD가 아닌 배포가 정확히 하나일 때 그 배포를 갱신한다.
 #   COMMIT_SHA    배포할 커밋(버전 설명에 앞 7자리)
@@ -43,21 +43,60 @@ umask 077
 mkdir -p "$work/auth" "$work/project"
 
 # NIRO_DEPLOY를 풀어 로그인 정보·프로젝트 파일을 임시 폴더에만 쓴다. 문자열 조각은 모두 로그에서 가린다.
+# 휴대폰에서 긴 값을 복사하면 줄바꿈·공백이 섞이기 쉬워 다음 순서로 풀어 본다:
+#   (a) 그대로 JSON → (b) 앞뒤 공백·줄바꿈(CR/LF)과 "NIRO_DEPLOY 시작/끝" 표시 줄을 지운 JSON
+#   → (c) 모든 공백을 지운 base64(일반·URL-safe)를 풀어 JSON. 모두 실패하면 값은 보이지 않고 진단만 출력한다.
 if ! node - "$work" <<'NODE'
 const fs = require('fs')
 const path = require('path')
 const work = process.argv[2]
-let config
-try {
-  config = JSON.parse(process.env.NIRO_DEPLOY)
-} catch {
-  console.error('NIRO_DEPLOY가 올바른 JSON이 아닙니다. setup-deploy.sh가 출력한 한 줄을 그대로 다시 넣어 주세요.')
+const raw = process.env.NIRO_DEPLOY ?? ''
+// 줄바꿈이 든 값을 그대로 넘기면 둘째 줄부터 로그에 그대로 찍히므로, 한 줄짜리만 넘긴다(여러 줄은 줄마다 가린다).
+const mask = (s) => {
+  if (process.env.GITHUB_ACTIONS && typeof s === 'string' && s.length >= 6 && !/[\r\n]/.test(s)) console.log(`::add-mask::${s}`)
+}
+// 원문의 줄 단위 조각도 가린다(파싱에 실패해도 로그에 섞이지 않게).
+mask(raw.trim())
+for (const line of raw.split(/\r?\n/)) mask(line.trim())
+const withoutMarkers = raw
+  .split(/\r?\n/)
+  .filter((line) => !/^\s*-{3,}.*NIRO_DEPLOY.*-{3,}\s*$/.test(line))
+  .join('')
+  .replace(/[\r\n]/g, '')
+  .trim()
+const compact = withoutMarkers.replace(/\s+/g, '')
+mask(withoutMarkers)
+mask(compact)
+const tryJson = (text) => {
+  try {
+    const value = JSON.parse(text)
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : null
+  } catch {
+    return null
+  }
+}
+const tryBase64 = (text) => {
+  if (!/^[A-Za-z0-9+/_-]+={0,2}$/.test(text)) return null
+  const decoded = Buffer.from(text.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')
+  return tryJson(decoded)
+}
+const config = tryJson(raw) ?? tryJson(withoutMarkers) ?? tryBase64(compact)
+if (!config) {
+  const facts = [
+    `길이 ${raw.length}자`,
+    `첫 글자가 '{' ${compact.startsWith('{') ? '맞음' : '아님'}`,
+    `base64 글자만 ${/^[A-Za-z0-9+/_=-]+$/.test(compact) ? '있음' : '아님'}`,
+    `줄바꿈 ${/[\r\n]/.test(raw) ? '있음' : '없음'}`,
+    `끝 글자가 '}' ${compact.endsWith('}') ? '맞음' : '아님(잘렸을 수 있음)'}`,
+  ]
+  console.error(`NIRO_DEPLOY를 풀지 못했습니다(올바른 JSON이 아닙니다). 진단: ${facts.join(', ')}.`)
+  console.error('setup-deploy.sh를 다시 실행해 "NIRO_DEPLOY 시작"과 "끝" 사이의 값을 처음부터 끝까지 복사해 Secret을 바꿔 주세요(줄바꿈이 섞여도 괜찮습니다).')
   process.exit(1)
 }
 const secrets = []
 const walk = (v) => (typeof v === 'string' ? secrets.push(v) : v && typeof v === 'object' && Object.values(v).forEach(walk))
 walk(config)
-if (process.env.GITHUB_ACTIONS) for (const s of secrets) if (s.length >= 6) console.log(`::add-mask::${s}`)
+for (const s of secrets) mask(s)
 const id = /^[A-Za-z0-9_-]{10,}$/
 if (!config || typeof config.clasprc !== 'object' || config.clasprc === null || !id.test(config.scriptId ?? '')) {
   console.error('NIRO_DEPLOY에 clasprc(객체)와 scriptId가 있어야 합니다. setup-deploy.sh를 다시 실행해 주세요.')
