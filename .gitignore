@@ -15,3 +15,5 @@ private-data/
 sheet-exports/
 *.local
 _site/
+.clasp.json
+.clasprc.json
