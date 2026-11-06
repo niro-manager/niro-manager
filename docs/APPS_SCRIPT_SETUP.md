@@ -107,7 +107,48 @@ Apps Script 주소(`script.google.com`)에는 앱 설치 정보(manifest)를 붙
 - 앱이 요청하는 권한: 스프레드시트(차계부 읽기·쓰기), **이 앱이 만든 Drive 파일만**(`drive.file`, 영수증을 잠깐 문서로 바꾸고 바로 지우는 데 사용), 외부 요청(`script.external_request`, 그 문서에서 글자를 꺼내는 Drive 요청에 사용). Drive의 다른 파일에는 접근하지 않습니다.
 - 편집기의 **서비스**에 Drive API가 보이지 않으면 **서비스 + → Drive API(v3) → 추가**를 누릅니다(`appsscript.json`을 바꿔 붙여 넣으면 보통 자동으로 추가됩니다).
 
-명령줄을 쓰려면 [clasp](https://github.com/google/clasp)로 `dist/`를 올릴 수 있습니다(`rootDir: dist`). 이때 [Apps Script 사용자 설정](https://script.google.com/home/usersettings)에서 Apps Script API를 켜야 합니다. `.clasp.json`의 스크립트 ID는 저장소에 커밋하지 않습니다.
+명령줄을 쓰려면 [clasp](https://github.com/google/clasp)로 `dist/`를 올릴 수 있습니다(`rootDir: dist`). 이때 [Apps Script 사용자 설정](https://script.google.com/home/usersettings)에서 Apps Script API를 켜야 합니다. `.clasp.json`·`.clasprc.json`은 저장소에 커밋하지 않습니다(`.gitignore`에 있음). 손으로 올리지 않으려면 아래 "자동 배포(1회 설정)"를 씁니다.
+
+## 자동 배포(1회 설정)
+
+한 번 설정하면, main에 병합된 변경의 CI가 성공할 때 GitHub Actions(**Deploy Apps Script** 워크플로)가 `index.html`·`Code.js`·`appsscript.json`을 Apps Script 프로젝트에 올리고 **기존 웹 앱 배포를 새 버전으로 갱신**합니다. 새 배포를 만들지 않으므로 웹 앱 URL과 런처에 저장한 주소는 그대로입니다. 버전 설명에는 커밋 앞 7자리가 들어갑니다. 설정하지 않으면 워크플로는 "설정 필요"만 남기고 아무것도 올리지 않습니다(위 "업데이트"의 손 배포는 계속 쓸 수 있습니다).
+
+주의: 자동 배포는 Apps Script 프로젝트의 파일을 이 세 파일로 **통째로 바꿉니다**. 편집기에서 따로 만든 파일이 있으면 지워집니다. 스크립트 속성(`GEMINI_API_KEY` 등)과 배포 설정(나로 실행, 나만 접근)은 그대로입니다.
+
+휴대폰만으로 할 수 있게 적었습니다. PC에 Node.js가 있으면 2단계를 PC 터미널에서 같은 명령으로 해도 됩니다.
+
+1. **Apps Script API 켜기**: [Apps Script 사용자 설정](https://script.google.com/home/usersettings)에서 **Google Apps Script API**를 **사용**으로 바꿉니다(소유자 계정).
+2. **clasp 로그인 정보 만들기**: [Google Cloud Shell](https://shell.cloud.google.com)을 소유자 계정으로 엽니다(무료, 프로젝트를 만들 필요 없음). 터미널에 다음을 입력합니다.
+
+   ```bash
+   npx --yes @google/clasp@3.4.1 login --no-localhost
+   ```
+
+   - 나오는 "Authorize clasp by visiting this url" 주소를 열고 소유자 계정으로 **허용**합니다.
+   - 허용 후 브라우저가 `http://localhost…`로 시작하는 주소로 넘어가며 "사이트에 연결할 수 없음"이 뜹니다. 정상입니다. 그 **주소창의 전체 주소**를 복사해 터미널의 "copy the URL from your browser and paste it here" 아래에 붙여 넣습니다.
+   - `Logged in!`이 나오면 `cat ~/.clasprc.json`으로 내용을 보고 **전체를 복사**합니다(`{`부터 `}`까지).
+3. **ID 두 개 확인**
+   - 스크립트 ID: 차계부(`히로_차계부_DB`)의 Apps Script 편집기 → **⚙️ 프로젝트 설정** → **스크립트 ID**.
+   - 배포 ID: 편집기 **배포 → 배포 관리** → 지금 쓰는 활성 웹 앱 배포의 **배포 ID**(`AKfy…`로 시작). 웹 앱 URL `https://script.google.com/macros/s/<배포 ID>/exec`의 가운데 부분과 같습니다.
+4. **GitHub Secrets에 넣기**: [새 저장소 Secret 만들기](https://github.com/niro-manager/niro-manager/settings/secrets/actions/new)(Settings → Secrets and variables → Actions → New repository secret)에서 세 개를 하나씩 추가합니다.
+   - `CLASPRC_JSON`: 2단계에서 복사한 `~/.clasprc.json` 전체
+   - `APPS_SCRIPT_ID`: 스크립트 ID
+   - `APPS_SCRIPT_DEPLOYMENT_ID`: 배포 ID
+5. **첫 배포 확인**: 저장소 **Actions → Deploy Apps Script → Run workflow**(브랜치 main)를 누릅니다. 끝나면 실행 요약에 "Apps Script 자동 배포 완료, 버전 N, 커밋 abc1234"가 나옵니다. 편집기 **배포 관리**에서 같은 배포가 새 버전으로 바뀌었는지, 웹 앱이 그대로 열리는지 확인합니다. 그다음부터는 main에 병합될 때마다 자동으로 배포됩니다.
+
+보안:
+
+- `CLASPRC_JSON`은 소유자 계정으로 Apps Script·Drive 등에 넓게 접근할 수 있는 **갱신 토큰**입니다. 채팅·저장소·이슈에 붙여 넣지 말고 GitHub Secrets에만 넣습니다. 워크플로는 이 값을 러너의 임시 폴더에만 쓰고 작업이 끝나면 지우며, 로그에 출력하지 않습니다.
+- Cloud Shell에서 Secret에 넣은 뒤에는 `rm ~/.clasprc.json`으로 지웁니다.
+- 자동 배포를 끊으려면 [Google 계정의 서드파티 앱 접근](https://myaccount.google.com/permissions)에서 clasp 접근을 삭제하고, GitHub Secrets의 세 값을 지웁니다.
+
+자동 배포 문제 해결(Actions 실행 로그에서 확인):
+
+- **요약에 "설정 필요"**: Secret 이름이 위와 정확히 같은지(대문자·밑줄) 확인합니다. 빠진 이름이 요약에 나옵니다.
+- **`invalid_grant`, 401, "unauthorized"**: 로그인 정보가 만료되었거나 접근이 철회되었습니다. 2단계를 다시 해서 `CLASPRC_JSON`을 새 값으로 바꿉니다.
+- **"User has not enabled the Apps Script API"**: 1단계를 합니다. 켠 뒤 몇 분 지나 다시 실행합니다.
+- **`clasp update-deployment`가 실패, 404·"not found"**: 배포 ID가 틀렸거나 그 배포가 지워졌습니다. 배포 관리에서 활성 배포의 ID를 다시 복사합니다. 스크립트 ID가 틀려도 `clasp push`가 404로 실패합니다.
+- **"CLASPRC_JSON이 올바른 JSON이 아닙니다"**: `~/.clasprc.json`을 일부만 복사했습니다. `{`부터 `}`까지 전체를 다시 넣습니다.
 
 ## 문제 해결
 
