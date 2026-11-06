@@ -8,6 +8,7 @@ import { clearDraft, loadDraft, saveDraft } from './drafts'
 import { OFFLINE_MESSAGE, isOffline } from './offline'
 import { DraftNotice, Field } from './Field'
 import { prepareReceiptImage } from './receiptImage'
+import { fallbackMessage, paidReferenceMessage } from './receiptMessages'
 
 interface Props {
   connection: SheetConnection
@@ -21,7 +22,15 @@ type Stage = { kind: 'form' } | { kind: 'confirm'; plan: FuelWritePlan } | { kin
 type ReceiptScan =
   | { kind: 'idle' }
   | { kind: 'reading' }
-  | { kind: 'read'; engine: ReceiptOcr['engine']; fallback: ReceiptOcr['fallback']; text: string; missing: ReceiptField[]; tempFileLeft: boolean }
+  | {
+      kind: 'read'
+      engine: ReceiptOcr['engine']
+      fallbackNote: string | null
+      paidReference: number | null
+      text: string
+      missing: ReceiptField[]
+      tempFileLeft: boolean
+    }
   | { kind: 'error'; message: string }
 
 const emptyForm = (): FuelForm => ({ date: today(), unitPrice: '', liters: '', manualCostEnabled: false, manualCost: '', odometerKm: '', memo: '' })
@@ -73,7 +82,15 @@ export function FuelEntryView({ connection, onSaved }: Props) {
       setForm((current) => fillFuelForm(current, receipt).form)
       setFromReceipt(new Set(filled.filled))
       setErrors({})
-      setScan({ kind: 'read', engine: ocr.engine, fallback: ocr.fallback, text: ocr.text, missing: filled.missing, tempFileLeft: ocr.tempFileLeft })
+      setScan({
+        kind: 'read',
+        engine: ocr.engine,
+        fallbackNote: fallbackMessage(ocr),
+        paidReference: filled.paidReference,
+        text: ocr.text,
+        missing: filled.missing,
+        tempFileLeft: ocr.tempFileLeft,
+      })
     } catch (e) {
       setScan({ kind: 'error', message: e instanceof Error ? e.message : '영수증을 읽지 못했습니다.' })
     }
@@ -256,9 +273,8 @@ function ReceiptPicker({ scan, onChange }: { scan: ReceiptScan; onChange: (event
             영수증에서 읽은 값을 채웠습니다. 인식이 틀릴 수 있으니 확인한 뒤 저장해 주세요.
             {scan.missing.length > 0 && ` 찾지 못함: ${scan.missing.map((f) => RECEIPT_FIELD_LABELS[f]).join(', ')}.`}
           </p>
-          {scan.fallback && scan.fallback !== 'no-key' && (
-            <p className="computed">{scan.fallback === 'quota' ? 'Gemini 무료 사용 한도를 넘어 Drive 인식으로 읽었습니다.' : 'Gemini가 응답하지 않아 Drive 인식으로 읽었습니다.'}</p>
-          )}
+          {scan.paidReference !== null && <p>{paidReferenceMessage(scan.paidReference)}</p>}
+          {scan.fallbackNote && <p className="computed">{scan.fallbackNote}</p>}
           {scan.tempFileLeft && (
             <p className="field-error">Drive의 임시 문서 "Niro Manager 영수증 인식(임시)"를 지우지 못했습니다. Drive에서 직접 지워 주세요.</p>
           )}

@@ -104,6 +104,48 @@ const TABLE_SHUFFLED_HEADER = `2026-07-20
 휘발유
 30.000 1,650 49,500`
 
+/** 값마다 한 줄씩 나온 실제 Drive 글자 구조(값·번호는 가짜). 머리글 사이에 노즐번호가 끼어 있다 */
+const ONE_VALUE_PER_LINE = `샘플에너지 샘플주유소
+거래일시 2026-11-06 08:41:20
+제품명
+수량
+노즐번호(Nozzle No) 단가
+"금액
+01
+휘발유
+18
+1,795
+32,310
+부가세 과세 물품가액 부가세
+29,373
+2,937
+합계 (주유금액)
+32,310원
+[신용카드]`
+
+/** 노즐번호·사업자번호·전화번호·승인번호 숫자가 리터·단가 범위에 끼어든 경우 */
+const NOISY_NUMBERS = `사업자 123-45-67890 TEL 031-123-4567
+2026.11.02 19:05
+노즐 07
+경유
+42.15
+1,535
+64,700
+승인번호 30012345
+결제금액 64,700원`
+
+/** 곱이 맞는 조합이 둘인 경우: 결제 금액과 같은 금액을 쓰는 조합을 고른다 */
+const TWO_PRODUCT_MATCHES = `2026-11-03
+보통휘발유
+20
+1,500
+30,000
+고급휘발유
+10
+2,000
+20,000
+승인금액 20,000`
+
 describe('parseFuelReceipt', () => {
   it.each<[string, string, FuelReceipt]>([
     ['SK', SK, { date: '2026-10-24', unitPrice: 1689, liters: 29.612, paid: 50015 }],
@@ -116,6 +158,9 @@ describe('parseFuelReceipt', () => {
     ['표: 단가 수량 금액 순서', TABLE_PRICE_FIRST, { date: '2026-09-12', unitPrice: 1559, liters: 40.25, paid: 62750 }],
     ['표: 숫자 행이 여러 줄', TABLE_SPLIT_ROW, { date: '2026-08-01', unitPrice: 2015, liters: 22.5, paid: 45338 }],
     ['표: 머리글 순서가 어긋남', TABLE_SHUFFLED_HEADER, { date: '2026-07-20', unitPrice: 1650, liters: 30, paid: 49500 }],
+    ['곱 일치: 값마다 한 줄, 노즐번호 끼어듦', ONE_VALUE_PER_LINE, { date: '2026-11-06', unitPrice: 1795, liters: 18, paid: 32310 }],
+    ['곱 일치: 전화·사업자·승인번호 무시', NOISY_NUMBERS, { date: '2026-11-02', unitPrice: 1535, liters: 42.15, paid: 64700 }],
+    ['곱 일치: 후보 둘 중 결제 금액과 맞는 조합', TWO_PRODUCT_MATCHES, { date: '2026-11-03', unitPrice: 2000, liters: 10, paid: 20000 }],
   ])('%s', (_name, text, expected) => {
     expect(parseFuelReceipt(text)).toEqual(expected)
   })
@@ -170,10 +215,31 @@ describe('fillFuelForm', () => {
     expect(result.missing).toEqual([])
   })
 
-  it('결제 금액이 다르면 "결제액이 다름"을 켜고 금액을 넣는다', () => {
+  it('결제 금액이 max(100원, 1%) 안에서 다르면 단가×리터를 쓰고 "결제액이 다름"을 켜지 않는다', () => {
+    // 1712 × 35.05 = 60,006원, 결제 60,000원(6원 차이)
     const result = fillFuelForm(form(), { date: '2026-10-03', unitPrice: 1712, liters: 35.05, paid: 60000 })
-    expect(result.form).toMatchObject({ manualCostEnabled: true, manualCost: '60000' })
+    expect(result.form).toMatchObject({ unitPrice: '1712', liters: '35.05', manualCostEnabled: false, manualCost: '' })
+    expect(result.filled).not.toContain('manualCost')
+    expect(result.paidReference).toBeNull()
+  })
+
+  it('결제 금액이 max(100원, 1%)를 넘게 다르면(상품권 등) "결제액이 다름"을 켜고 금액을 넣는다', () => {
+    const result = fillFuelForm(form(), { date: '2026-10-03', unitPrice: 1712, liters: 35.05, paid: 50000 })
+    expect(result.form).toMatchObject({ unitPrice: '1712', liters: '35.05', manualCostEnabled: true, manualCost: '50000' })
     expect(result.filled).toContain('manualCost')
+  })
+
+  it('경계: 1% 또는 100원 중 큰 값까지는 같은 것으로 본다', () => {
+    // 1800 × 10 = 18,000원 → 허용 180원
+    expect(fillFuelForm(form(), { date: null, unitPrice: 1800, liters: 10, paid: 18180 }).form.manualCostEnabled).toBe(false)
+    expect(fillFuelForm(form(), { date: null, unitPrice: 1800, liters: 10, paid: 18181 }).form.manualCostEnabled).toBe(true)
+    // 1800 × 5 = 9,000원 → 허용 100원
+    expect(fillFuelForm(form(), { date: null, unitPrice: 1800, liters: 5, paid: 9100 }).form.manualCostEnabled).toBe(false)
+    expect(fillFuelForm(form(), { date: null, unitPrice: 1800, liters: 5, paid: 9101 }).form.manualCostEnabled).toBe(true)
+  })
+
+  it('단가·리터를 모두 얻으면 결제 금액을 못 찾아도 "찾지 못함"에 넣지 않는다', () => {
+    expect(fillFuelForm(form(), { date: '2026-10-03', unitPrice: 1712, liters: 35.05, paid: null }).missing).toEqual([])
   })
 
   it('찾지 못한 단가·리터·금액은 비우고 날짜·누적 km·비고는 그대로 둔다', () => {
@@ -183,9 +249,18 @@ describe('fillFuelForm', () => {
     expect(result.missing).toEqual(['date', 'unitPrice', 'paid'])
   })
 
-  it('단가·리터 없이 금액만 찾으면 결제 금액으로 넣는다', () => {
-    const result = fillFuelForm(form(), { date: null, unitPrice: null, liters: null, paid: 30000 })
-    expect(result.form).toMatchObject({ unitPrice: '', liters: '', manualCostEnabled: true, manualCost: '30000' })
+  it('단가·리터 없이 금액만 찾으면 "결제액이 다름"을 켜지 않고 금액은 참고로만 돌려준다', () => {
+    const result = fillFuelForm(form({ manualCostEnabled: true, manualCost: '9' }), { date: null, unitPrice: null, liters: null, paid: 30000 })
+    expect(result.form).toMatchObject({ unitPrice: '', liters: '', manualCostEnabled: false, manualCost: '' })
+    expect(result.filled).toEqual([])
+    expect(result.paidReference).toBe(30000)
+    expect(result.missing).toEqual(['date', 'unitPrice', 'liters'])
+  })
+
+  it('단가만 찾아도 결제 금액은 참고로만 돌려준다', () => {
+    const result = fillFuelForm(form(), { date: null, unitPrice: 1795, liters: null, paid: 32310 })
+    expect(result.form).toMatchObject({ unitPrice: '1795', liters: '', manualCostEnabled: false })
+    expect(result.paidReference).toBe(32310)
   })
 
   it('리터는 소수점 아래 3자리까지', () => {

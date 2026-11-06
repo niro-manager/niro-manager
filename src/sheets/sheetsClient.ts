@@ -50,8 +50,10 @@ export interface ReceiptOcr {
   fields: Record<string, unknown> | null
   /** Drive 인식 글자. Gemini면 빈 글자 */
   text: string
-  /** Drive로 읽은 이유: 키 없음, 무료 한도 초과, Gemini 실패. Gemini로 읽었거나 서버가 알려 주지 않으면 null */
-  fallback: 'no-key' | 'quota' | 'failed' | null
+  /** Drive로 읽은 이유: 키 없음, 무료 한도 초과, Gemini 요청 실패, Gemini 연결 실패. Gemini로 읽었거나 서버가 알려 주지 않으면 null */
+  fallback: 'no-key' | 'quota' | 'failed' | 'network' | null
+  /** Drive로 바꿀 때 Gemini가 돌려준 HTTP 상태 코드(없으면 null) */
+  geminiStatus: number | null
   /** 서버가 임시 문서를 지우지 못했으면 true */
   tempFileLeft: boolean
 }

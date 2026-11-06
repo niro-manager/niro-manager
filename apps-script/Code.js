@@ -79,41 +79,106 @@ const GEMINI_PROMPT_ =
 
 /**
  * 영수증 사진을 읽는다. 결과:
- * - Gemini: { engine: 'gemini', fields: { date, unitPrice, liters, paid }, text: '', tempFileLeft: false }
- * - Drive:  { engine: 'drive', text, tempFileLeft, gemini: 'no-key' | 'quota' | 'failed' } (gemini는 Drive로 바꾼 이유)
+ * - Gemini: { engine: 'gemini', fields: { date, unitPrice, liters, paid }, model, text: '', tempFileLeft: false }
+ * - Drive:  { engine: 'drive', text, tempFileLeft, gemini, geminiStatus }
+ *   gemini는 Drive로 바꾼 이유('no-key' | 'quota' | 'failed' | 'network'), geminiStatus는 Gemini의 HTTP 상태 코드 숫자(없으면 null).
  */
 function ocrReceipt(base64, mimeType) {
   if (typeof base64 !== 'string' || base64.length === 0) throw new Error('[api] 사진이 비어 있습니다.')
   if (base64.length > OCR_MAX_BASE64_LENGTH_) throw new Error('[api] 사진이 너무 큽니다.')
   if (OCR_MIME_TYPES_.indexOf(mimeType) < 0) throw new Error('[api] JPEG·PNG 사진만 읽을 수 있습니다.')
+  const gemini = readWithGemini_(base64, mimeType)
+  if (gemini.fields) return { engine: 'gemini', fields: gemini.fields, model: gemini.model, text: '', tempFileLeft: false }
+  const drive = ocrWithDrive_(base64, mimeType)
+  return { engine: 'drive', text: drive.text, tempFileLeft: drive.tempFileLeft, gemini: gemini.reason, geminiStatus: gemini.status }
+}
+
+const GEMINI_MODEL_CACHE_KEY_ = 'GEMINI_RESOLVED_MODEL'
+const GEMINI_MODEL_CACHE_SECONDS_ = 6 * 60 * 60
+
+/**
+ * Gemini로 값을 읽는다. 성공하면 { fields, model }, 실패하면 { reason, status }.
+ * GEMINI_MODEL 속성이 있으면 그 모델만 쓴다. 없으면 캐시해 둔 모델이나 기본 모델을 쓰고, 그 모델이 없다는 응답(404)이면
+ * 같은 키로 쓸 수 있는 모델 목록에서 가장 새 Flash를 골라 한 번 더 시도한 뒤 성공한 모델을 6시간 캐시한다.
+ */
+function readWithGemini_(base64, mimeType) {
   const properties = PropertiesService.getScriptProperties()
   const apiKey = properties.getProperty('GEMINI_API_KEY')
-  let reason = 'no-key'
-  if (apiKey) {
-    reason = 'failed'
-    try {
-      const model = properties.getProperty('GEMINI_MODEL') || GEMINI_DEFAULT_MODEL_
-      const response = UrlFetchApp.fetch(geminiUrl_(model), {
-        method: 'post',
-        contentType: 'application/json',
-        headers: { 'x-goog-api-key': apiKey },
-        payload: JSON.stringify(geminiRequest_(base64, mimeType, model)),
-        muteHttpExceptions: true,
-      })
-      const code = response.getResponseCode()
-      if (code === 200) {
-        const fields = parseGeminiResponse_(response.getContentText('UTF-8'))
-        if (fields) return { engine: 'gemini', fields: fields, text: '', tempFileLeft: false }
-      } else if (code === 429) {
-        reason = 'quota'
-      }
-      // 오류 본문은 버린다(키나 사진 내용이 섞일 수 있는 곳에 남기지 않는다).
-    } catch (e) {
-      // 연결 실패·시간 초과 등도 Drive로 바꾼다. 오류 내용은 남기지 않는다.
+  if (!apiKey) return { reason: 'no-key', status: null }
+  const configured = properties.getProperty('GEMINI_MODEL')
+  const cache = CacheService.getScriptCache()
+  let model = configured || cache.get(GEMINI_MODEL_CACHE_KEY_) || GEMINI_DEFAULT_MODEL_
+  if (!/^[A-Za-z0-9.-]+$/.test(model)) return { reason: 'failed', status: null }
+  let attempt = callGemini_(apiKey, model, base64, mimeType)
+  if (attempt.status === 404 && !configured) {
+    cache.remove(GEMINI_MODEL_CACHE_KEY_)
+    const latest = latestFlashModel_(apiKey)
+    if (latest && latest !== model) {
+      model = latest
+      attempt = callGemini_(apiKey, model, base64, mimeType)
+      if (attempt.fields) cache.put(GEMINI_MODEL_CACHE_KEY_, model, GEMINI_MODEL_CACHE_SECONDS_)
     }
   }
-  const drive = ocrWithDrive_(base64, mimeType)
-  return { engine: 'drive', text: drive.text, tempFileLeft: drive.tempFileLeft, gemini: reason }
+  return attempt.fields ? { fields: attempt.fields, model: model } : { reason: attempt.reason, status: attempt.status }
+}
+
+/** generateContent 한 번. 오류 본문은 버리고 상태 코드 숫자만 돌려준다(키나 사진 내용이 섞일 수 있는 곳에 남기지 않는다) */
+function callGemini_(apiKey, model, base64, mimeType) {
+  let response
+  try {
+    response = UrlFetchApp.fetch(geminiUrl_(model), {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { 'x-goog-api-key': apiKey },
+      payload: JSON.stringify(geminiRequest_(base64, mimeType, model)),
+      muteHttpExceptions: true,
+    })
+  } catch (e) {
+    // 연결 실패·시간 초과 등. 오류 내용은 남기지 않는다.
+    return { reason: 'network', status: null }
+  }
+  const code = response.getResponseCode()
+  if (code === 200) {
+    const fields = parseGeminiResponse_(response.getContentText('UTF-8'))
+    return fields ? { fields: fields } : { reason: 'failed', status: 200 }
+  }
+  return { reason: code === 429 ? 'quota' : 'failed', status: code }
+}
+
+/**
+ * 이 키로 generateContent를 쓸 수 있는 모델 중 이름이 gemini-<버전>-flash인 것(lite·preview·exp·image·tts·live 등 접미사 없음)의
+ * 가장 높은 버전. 목록을 못 받으면 null
+ */
+function latestFlashModel_(apiKey) {
+  let models
+  try {
+    const response = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000', {
+      headers: { 'x-goog-api-key': apiKey },
+      muteHttpExceptions: true,
+    })
+    if (response.getResponseCode() !== 200) return null
+    models = JSON.parse(response.getContentText('UTF-8')).models || []
+  } catch (e) {
+    return null
+  }
+  let best = null
+  for (const m of models) {
+    const name = String((m && m.name) || '').replace(/^models\//, '')
+    const version = /^gemini-(\d+(?:\.\d+)*)-flash$/.exec(name)
+    const methods = (m && m.supportedGenerationMethods) || []
+    if (!version || methods.indexOf('generateContent') < 0) continue
+    const parts = version[1].split('.').map(Number)
+    if (!best || compareVersions_(parts, best.parts) > 0) best = { name: name, parts: parts }
+  }
+  return best ? best.name : null
+}
+
+function compareVersions_(a, b) {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const d = (a[i] || 0) - (b[i] || 0)
+    if (d !== 0) return d
+  }
+  return 0
 }
 
 function geminiUrl_(model) {
