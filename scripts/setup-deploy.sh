@@ -88,20 +88,37 @@ case "$status" in
   *) fail "배포 목록을 해석하지 못했습니다." ;;
 esac
 
+# 값은 base64 한 덩어리로 출력한다(공백·따옴표·중괄호가 없어 휴대폰에서 복사해도 잘 깨지지 않음).
 secret=$(SCRIPT_ID="$script_id" DEPLOYMENT_ID="$deployment_id" node -e '
   const clasprc = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))
-  process.stdout.write(JSON.stringify({ clasprc, scriptId: process.env.SCRIPT_ID, deploymentId: process.env.DEPLOYMENT_ID }))
+  const json = JSON.stringify({ clasprc, scriptId: process.env.SCRIPT_ID, deploymentId: process.env.DEPLOYMENT_ID })
+  process.stdout.write(Buffer.from(json, "utf8").toString("base64"))
 ' "$auth")
+# 출력할 값을 다시 풀어 검증한다.
+printf '%s' "$secret" | SCRIPT_ID="$script_id" node -e '
+  const text = require("fs").readFileSync(0, "utf8")
+  const value = JSON.parse(Buffer.from(text, "base64").toString("utf8"))
+  if (value.scriptId !== process.env.SCRIPT_ID || typeof value.clasprc !== "object") process.exit(1)
+' || fail "만든 값을 검증하지 못했습니다. 다시 실행해 주세요."
+
+saved="$HOME/niro_deploy.txt"
+printf '%s\n' "$secret" >"$saved"
+chmod 600 "$saved"
 
 say ""
-say "4) 아래 한 줄 전체를 복사해 GitHub Secret에 붙여 넣으세요."
+say "4) 아래 값 전체를 복사해 GitHub Secret에 붙여 넣으세요."
 say "   https://github.com/niro-manager/niro-manager/settings/secrets/actions/new"
-say "   Name: NIRO_DEPLOY   Secret: 아래 한 줄"
+say "   Name: NIRO_DEPLOY   Secret: 아래 값"
+say "   휴대폰에서 여러 줄로 보이거나 복사하면서 줄바꿈이 섞여도 괜찮습니다. 시작·끝 표시 사이를 빠짐없이 복사하세요."
 say "   (이 값은 계정 접근 토큰입니다. 채팅·메모·저장소에는 붙여 넣지 마세요.)"
 say ""
 say "----- NIRO_DEPLOY 시작 -----"
 printf '%s\n' "$secret"
 say "----- NIRO_DEPLOY 끝 -----"
+say ""
+say "   복사가 어려우면 같은 값을 ~/niro_deploy.txt에 저장해 두었습니다(본인만 읽을 수 있음)."
+say "   Cloud Shell 위쪽 메뉴 ⋮(더보기) → 다운로드에서 niro_deploy.txt를 받아 내용을 붙여 넣으세요."
+say "   Secret에 넣은 뒤에는 꼭 지우세요: rm ~/niro_deploy.txt"
 say ""
 
 # 예전에 직접 clasp login을 해서 남은 로그인 정보가 있으면 지운다(기본: 지움).

@@ -128,12 +128,13 @@ Apps Script 주소(`script.google.com`)에는 앱 설치 정보(manifest)를 붙
    - "스크립트 ID:"가 나오면 2에서 복사한 값을 붙여 넣습니다.
    - 나오는 주소를 열어 소유자 계정으로 **허용**합니다. 허용 후 `http://localhost…`로 넘어가며 "사이트에 연결할 수 없음"이 뜨는데 정상입니다. 그 **주소창 전체 주소**를 복사해 Cloud Shell에 붙여 넣습니다.
    - 웹 앱 배포가 여러 개면 지금 쓰는 배포 번호를 고릅니다(하나면 자동).
-   - "NIRO_DEPLOY 시작"과 "끝" 사이의 **한 줄 전체**를 복사합니다.
-4. **GitHub Secret 하나 추가**: [새 저장소 Secret 만들기](https://github.com/niro-manager/niro-manager/settings/secrets/actions/new)에서 Name에 `NIRO_DEPLOY`, Secret에 3에서 복사한 한 줄을 붙여 넣고 **Add secret**을 누릅니다.
+   - "NIRO_DEPLOY 시작"과 "끝" 사이의 **값 전체**(영문·숫자로 된 긴 한 덩어리)를 복사합니다. 휴대폰 화면에서 여러 줄로 보이거나 복사하면서 줄바꿈이 섞여도 괜찮습니다. 시작·끝 표시 줄까지 함께 복사해도 됩니다.
+   - 복사가 어려우면 같은 값이 Cloud Shell의 `~/niro_deploy.txt`에도 저장됩니다. Cloud Shell 위쪽 메뉴 **⋮(더보기) → 다운로드**에서 `niro_deploy.txt`를 받아 내용을 붙여 넣고, 끝나면 Cloud Shell에서 `rm ~/niro_deploy.txt`로 지웁니다.
+4. **GitHub Secret 하나 추가**: [새 저장소 Secret 만들기](https://github.com/niro-manager/niro-manager/settings/secrets/actions/new)에서 Name에 `NIRO_DEPLOY`, Secret에 3에서 복사한 값을 붙여 넣고 **Add secret**을 누릅니다. 이미 만든 Secret을 바꿀 때는 [Actions Secrets 목록](https://github.com/niro-manager/niro-manager/settings/secrets/actions)에서 `NIRO_DEPLOY` 옆 연필(**Update**)을 누릅니다.
 
 첫 배포는 Claude가 Actions의 **Run workflow**(수동 실행)로 돌려 확인합니다. 직접 하려면 저장소 **Actions → Deploy Apps Script → Run workflow**(브랜치 main)를 누릅니다. 끝나면 실행 요약에 "Apps Script 자동 배포 완료, 버전 N, 커밋 abc1234"가 나옵니다. 그다음부터는 main에 병합될 때마다 자동으로 배포됩니다.
 
-설정 도우미(`scripts/setup-deploy.sh`)가 하는 일: 고정 버전 clasp(`@google/clasp@3.4.1`)를 임시 폴더에 받아 `login --no-localhost`로 로그인하고, 스크립트 ID와 배포 목록을 확인한 뒤 `{"clasprc": <로그인 정보>, "scriptId": "...", "deploymentId": "..."}` 한 줄을 출력합니다. 로그인 정보는 임시 폴더에만 두고 끝나면 지웁니다. 예전에 직접 `clasp login`을 해서 `~/.clasprc.json`이 남아 있으면 지울지 묻고 기본으로 지웁니다. PC에 Node.js가 있으면 PC 터미널에서 같은 한 줄을 실행해도 됩니다. `curl`로 받을 수 없으면 저장소에서 `scripts/setup-deploy.sh`를 내려받아 `bash setup-deploy.sh`로 실행합니다.
+설정 도우미(`scripts/setup-deploy.sh`)가 하는 일: 고정 버전 clasp(`@google/clasp@3.4.1`)를 임시 폴더에 받아 `login --no-localhost`로 로그인하고, 스크립트 ID와 배포 목록을 확인한 뒤 `{"clasprc": <로그인 정보>, "scriptId": "...", "deploymentId": "..."}`를 base64로 바꾼 값 하나를 출력하고(출력 전에 다시 풀어 검증) `~/niro_deploy.txt`(권한 600)에도 저장합니다. 배포 워크플로는 이 base64 값과 예전 방식의 한 줄 JSON을 모두 받으며, 복사하면서 섞인 줄바꿈·공백은 무시합니다. 로그인 정보는 임시 폴더에만 두고 끝나면 지웁니다. 예전에 직접 `clasp login`을 해서 `~/.clasprc.json`이 남아 있으면 지울지 묻고 기본으로 지웁니다. PC에 Node.js가 있으면 PC 터미널에서 같은 한 줄을 실행해도 됩니다. `curl`로 받을 수 없으면 저장소에서 `scripts/setup-deploy.sh`를 내려받아 `bash setup-deploy.sh`로 실행합니다.
 
 보안:
 
@@ -144,7 +145,8 @@ Apps Script 주소(`script.google.com`)에는 앱 설치 정보(manifest)를 붙
 자동 배포 문제 해결(Actions 실행 로그와 요약에서 확인):
 
 - **요약에 "설정 필요"**: Secret 이름이 `NIRO_DEPLOY`인지 확인합니다.
-- **"NIRO_DEPLOY가 올바른 JSON이 아닙니다" / "clasprc(객체)와 scriptId가 있어야 합니다"**: 한 줄을 일부만 복사했습니다. 3단계를 다시 해서 Secret 값을 바꿉니다(Secret 화면에서 **Update**).
+- **"NIRO_DEPLOY를 풀지 못했습니다(올바른 JSON이 아닙니다)"**: 값이 잘렸거나 다른 글자가 섞였습니다. 로그의 진단(길이, 첫 글자 `{` 여부, base64 글자만 있는지, 줄바꿈 여부, 끝 글자 `}` 여부)을 봅니다. 값 자체는 로그에 나오지 않습니다. 줄바꿈은 자동으로 무시하므로 보통은 끝부분이 잘린 경우입니다. 3단계를 다시 해서 시작·끝 표시 사이를 빠짐없이 복사하거나 `~/niro_deploy.txt`를 내려받아 붙여 넣고, Secret을 **Update**로 바꾼 뒤 다시 실행합니다.
+- **"clasprc(객체)와 scriptId가 있어야 합니다"**: 다른 값을 넣었습니다. 3단계를 다시 해서 Secret 값을 바꿉니다.
 - **`invalid_grant`, 401, "unauthorized"**: 로그인이 만료되었거나 접근이 철회되었습니다. 3·4단계를 다시 합니다.
 - **"User has not enabled the Apps Script API"**: 1단계를 합니다. 켠 뒤 몇 분 지나 다시 실행합니다.
 - **"버전 배포가 N개라 … deploymentId를 지정해야 합니다"**: 웹 앱 배포가 없거나 여러 개입니다. 3단계를 다시 하면 배포를 고르게 하고 그 ID를 넣어 줍니다.

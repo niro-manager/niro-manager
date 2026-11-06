@@ -1,7 +1,7 @@
 // scripts/deploy-apps-script.sh와 scripts/setup-deploy.sh를 가짜 clasp로 실행해
 // 비밀값 없음 분기, 배포 자동 탐지, 명령 순서, 실패 처리, 비밀값 비노출을 확인한다.
 import { spawnSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -143,6 +143,7 @@ describe('deploy-apps-script.sh', () => {
 
   it.each([
     ['JSON이 아님', 'not json secret-refresh-token', '올바른 JSON이 아닙니다'],
+    ['base64지만 JSON이 아님', Buffer.from('secret-refresh-token').toString('base64'), '올바른 JSON이 아닙니다'],
     ['scriptId 없음', JSON.stringify({ clasprc: CLASPRC }), 'scriptId'],
     ['clasprc 없음', JSON.stringify({ scriptId: SCRIPT_ID }), 'clasprc'],
   ])('NIRO_DEPLOY가 %s이면 clasp를 부르지 않고 실패한다', (_name, value, message) => {
@@ -152,6 +153,67 @@ describe('deploy-apps-script.sh', () => {
     expect(result.calls).toEqual([])
     expect(result.stderr).toContain(message)
     expect(result.output).not.toMatch(/secret-/)
+  })
+
+  const variants = () => {
+    const json = niroDeploy({ deploymentId: DEPLOYMENT_ID })
+    const b64 = Buffer.from(json).toString('base64')
+    const urlSafe = b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    const wrap = (s, n) => s.match(new RegExp(`.{1,${n}}`, 'g')).join('\n')
+    return [
+      ['JSON 중간중간 줄바꿈', wrap(json, 17)],
+      ['JSON CRLF 줄바꿈과 앞뒤 공백', `  ${wrap(json, 23).replace(/\n/g, '\r\n')}  \r\n`],
+      ['base64 한 줄', b64],
+      ['base64 줄바꿈·공백 섞임', ` ${wrap(b64, 30).replace(/\n/g, (_, i) => (i % 2 ? ' \n' : '\r\n'))} `],
+      ['URL-safe base64', urlSafe],
+      ['시작·끝 표시까지 복사한 base64', `----- NIRO_DEPLOY 시작 -----\n${wrap(b64, 40)}\n----- NIRO_DEPLOY 끝 -----`],
+    ]
+  }
+
+  it.each(variants())('NIRO_DEPLOY가 %s여도 풀어서 배포한다', (_name, value) => {
+    const ctx = setup()
+    const result = run(ctx, DEPLOY, { NIRO_DEPLOY: value })
+    expect(result.status).toBe(0)
+    expect(result.calls.map((c) => c.split('|')[0])).toEqual(['push', 'update-deployment'])
+    expect(result.calls[0]).toContain(`project={"scriptId":"${SCRIPT_ID}","rootDir":"."}`)
+    expect(result.calls[1]).toContain(`update-deployment ${DEPLOYMENT_ID} `)
+    expect(result.output).not.toMatch(/secret-/)
+  })
+
+  it('잘린 값은 내용을 보이지 않고 진단만 출력한다', () => {
+    const ctx = setup()
+    const b64 = Buffer.from(niroDeploy()).toString('base64')
+    const result = run(ctx, DEPLOY, { NIRO_DEPLOY: `${b64.slice(0, 60)}\n${b64.slice(60, 90)}` })
+    expect(result.status).not.toBe(0)
+    expect(result.calls).toEqual([])
+    expect(result.stderr).toContain('길이 91자')
+    expect(result.stderr).toContain("첫 글자가 '{' 아님")
+    expect(result.stderr).toContain('base64 글자만 있음')
+    expect(result.stderr).toContain('줄바꿈 있음')
+    expect(result.output).not.toContain(b64.slice(0, 20))
+  })
+
+  it('잘린 JSON은 끝이 "}"가 아니라고 알린다', () => {
+    const ctx = setup()
+    const json = niroDeploy()
+    const result = run(ctx, DEPLOY, { NIRO_DEPLOY: json.slice(0, json.length - 10) })
+    expect(result.status).not.toBe(0)
+    expect(result.stderr).toContain("첫 글자가 '{' 맞음")
+    expect(result.stderr).toContain("끝 글자가 '}' 아님(잘렸을 수 있음)")
+    expect(result.output).not.toMatch(/secret-/)
+  })
+
+  it('Actions에서는 여러 줄 값을 줄마다 가리고, 줄바꿈이 든 값은 add-mask에 넘기지 않는다', () => {
+    const ctx = setup()
+    const b64 = Buffer.from(niroDeploy({ deploymentId: DEPLOYMENT_ID })).toString('base64')
+    const lines = b64.match(/.{1,50}/g)
+    const result = run(ctx, DEPLOY, { NIRO_DEPLOY: lines.join('\n'), GITHUB_ACTIONS: 'true' })
+    expect(result.status).toBe(0)
+    for (const line of lines.filter((l) => l.length >= 6)) expect(result.stdout).toContain(`::add-mask::${line}\n`)
+    expect(result.stdout).toContain(`::add-mask::${b64}\n`)
+    // add-mask가 아닌 줄에 값 조각이 그대로 찍히지 않는다.
+    const plain = result.stdout.split('\n').filter((l) => !l.startsWith('::add-mask::'))
+    for (const line of lines.filter((l) => l.length >= 6)) expect(plain.join('\n')).not.toContain(line)
   })
 
   it('빌드 결과가 없으면 실패한다', () => {
@@ -165,7 +227,9 @@ describe('deploy-apps-script.sh', () => {
 /** setup-deploy.sh가 출력한 NIRO_DEPLOY 한 줄 */
 function secretLine(stdout) {
   const lines = stdout.split('\n')
-  return JSON.parse(lines[lines.indexOf('----- NIRO_DEPLOY 시작 -----') + 1])
+  const value = lines[lines.indexOf('----- NIRO_DEPLOY 시작 -----') + 1]
+  expect(value).toMatch(/^[A-Za-z0-9+/]+={0,2}$/)
+  return JSON.parse(Buffer.from(value, 'base64').toString('utf8'))
 }
 
 describe('setup-deploy.sh', () => {
@@ -178,6 +242,12 @@ describe('setup-deploy.sh', () => {
     expect(result.calls[0]).toContain('login --no-localhost')
     expect(secretLine(result.stdout)).toEqual({ clasprc: CLASPRC, scriptId: SCRIPT_ID, deploymentId: DEPLOYMENT_ID })
     expect(result.stdout).toContain('Name: NIRO_DEPLOY')
+    expect(result.stdout).toContain('줄바꿈이 섞여도 괜찮습니다')
+    // 같은 값을 ~/niro_deploy.txt(600)에도 저장하고 지우라고 안내한다.
+    const saved = join(ctx.root, 'niro_deploy.txt')
+    expect(JSON.parse(Buffer.from(readFileSync(saved, 'utf8').trim(), 'base64').toString('utf8')).scriptId).toBe(SCRIPT_ID)
+    expect(statSync(saved).mode & 0o777).toBe(0o600)
+    expect(result.stdout).toContain('rm ~/niro_deploy.txt')
     expect(existsSync(join(ctx.root, '.clasprc.json'))).toBe(false)
   })
 
