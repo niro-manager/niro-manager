@@ -56,7 +56,8 @@ npm run build      # dist/에 Apps Script용 index.html·Code.js·appsscript.jso
 - `apps-script/Code.test.js`: Apps Script 서비스를 가짜로 바꿔 `Code.js`의 영수증 인식(Gemini 요청·응답, Drive 전환)을 확인하는 테스트
 - `.github/workflows/ci.yml`: PR·main에서 타입 검사, 린트, 테스트, 런처 검사, 빌드 후 `apps-script` 아티팩트 업로드
 - `.github/workflows/pages.yml`: main push 시 `launcher/`만 GitHub Pages로 배포
-- `.github/workflows/deploy-apps-script.yml`, `scripts/deploy-apps-script.sh`: main의 CI가 성공하면 clasp(3.4.1 고정)로 Apps Script에 올리고 기존 웹 앱 배포를 새 버전으로 갱신(URL 유지). 로그인 정보·스크립트 ID·배포 ID는 GitHub Secrets에만 두며, 없으면 건너뜀. 1회 설정은 `docs/APPS_SCRIPT_SETUP.md`의 "자동 배포(1회 설정)"
+- `.github/workflows/deploy-apps-script.yml`, `scripts/deploy-apps-script.sh`: main의 CI가 성공하면 clasp(3.4.1 고정)로 Apps Script에 올리고 기존 웹 앱 배포를 새 버전으로 갱신(URL 유지). 로그인 정보·스크립트 ID·배포 ID는 GitHub Secret `NIRO_DEPLOY` 하나에만 두며(배포 ID는 없으면 자동 탐지), 없으면 건너뜀
+- `scripts/setup-deploy.sh`: Cloud Shell에서 한 줄로 실행하는 1회 설정 도우미(clasp 로그인 → `NIRO_DEPLOY` 값 출력). 절차는 `docs/APPS_SCRIPT_SETUP.md`의 "자동 배포(1회 설정)"
 
 ## 개발 시작
 
